@@ -65,6 +65,33 @@ jobs:
           docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
             logs --tail=10
 
+      - name: Debug - Check disk space
+        if: failure()
+        run: |
+          echo "=== Disk Space Check ==="
+          df -h
+          echo ""
+          echo "=== Docker System Information ==="
+          docker system df
+          echo ""
+          echo "=== Largest Directories ==="
+          du -h -d 1 / 2>/dev/null | sort -hr | head -20
+          echo ""
+          echo "=== Docker Images ==="
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+          echo ""
+          echo "=== Docker Containers ==="
+          docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Size}}"
+          echo ""
+          echo "=== Docker Build Cache ==="
+          docker builder du
+          echo ""
+          echo "=== Temporary Files ==="
+          du -sh /tmp/* 2>/dev/null | sort -hr | head -10
+          echo ""
+          echo "=== Pip Cache ==="
+          du -sh ~/.cache/pip 2>/dev/null || echo "No pip cache found"
+
       - name: Cleanup
         if: always()
         run: |
