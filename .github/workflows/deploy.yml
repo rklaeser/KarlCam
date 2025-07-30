@@ -33,14 +33,7 @@ jobs:
 
       - name: Build all services
         run: |
-          # Set Docker tmp directory if needed
-          export DOCKER_TMPDIR=/data/docker-tmp
-          mkdir -p $DOCKER_TMPDIR
-          
-          # Build with explicit build args to control space usage
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
-            --no-cache \
-            --progress plain
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build
 
       - name: Set up Docker context
         run: |
