@@ -1,0 +1,77 @@
+name: Deploy FogCam Collector
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy FogCam
+    runs-on: self-hosted
+    environment: prod
+
+    env:
+      DOCKER_HOST: tcp://10.0.0.49:2375  # Use your server IP
+      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
+      DOCKER_CONTEXT_NAME: fogcam-ctx
+      FOGCAM_IMAGE: fogcam-collector:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build FogCam Collector image
+        run: |
+          docker build \
+            -f Dockerfile \
+            -t ${{ env.FOGCAM_IMAGE }} .
+
+      - name: Set up Docker context
+        run: |
+          docker context \
+            create ${{ env.DOCKER_CONTEXT_NAME }} \
+            --docker host=${{ env.DOCKER_HOST }}
+
+      - name: Save and load image to remote Docker
+        run: |
+          # Save image
+          docker save ${{ env.FOGCAM_IMAGE }} > fogcam.tar
+          
+          # Load image on remote host
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} load < fogcam.tar
+          
+          # Cleanup
+          rm fogcam.tar
+
+      - name: Create volume if not exists
+        run: |
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} volume create fogcam-data || true
+
+      - name: Stop existing container
+        run: |
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
+            stop fogcam-collector || true
+          
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
+            rm -f fogcam-collector || true
+
+      - name: Deploy new container
+        run: |
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
+            up -d --remove-orphans
+
+      - name: Check deployment status
+        run: |
+          echo "Checking if FogCam collector is running..."
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
+            ps fogcam-collector
+          
+          echo "Recent logs:"
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
+            logs --tail=20 fogcam-collector
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker context rm ${{ env.DOCKER_CONTEXT_NAME }} --force || true
