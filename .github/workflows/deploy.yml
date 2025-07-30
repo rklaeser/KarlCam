@@ -75,6 +75,12 @@ jobs:
           docker --context ${{ env.DOCKER_CONTEXT_NAME }} compose --file ${{ env.DOCKER_COMPOSE_FILE }} \
             logs --tail=10
 
+      - name: Cleanup remote Docker server
+        run: |
+          echo "Cleaning up remote Docker server..."
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} image prune -f
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} builder prune -f
+
       - name: Debug - Check disk space
         if: failure()
         run: |
@@ -105,4 +111,6 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
+          docker image prune -f
+          docker builder prune -f
           docker context rm ${{ env.DOCKER_CONTEXT_NAME }} --force || true
