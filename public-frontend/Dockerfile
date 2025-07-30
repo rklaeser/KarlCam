@@ -4,14 +4,14 @@ FROM node:18-alpine as build
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from the correct context path
+COPY public-frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
-# Copy source code
-COPY . .
+# Copy source code from the correct context path
+COPY public-frontend/ .
 
 # Build the React app
 RUN npm run build
