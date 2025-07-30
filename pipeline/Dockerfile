@@ -1,5 +1,5 @@
-# Use PyTorch CPU-only base image
-FROM pytorch/pytorch:latest-cpu
+# Use Python base image and install PyTorch CPU
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY pipeline/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (with CPU-specific PyTorch)
+RUN pip install --no-cache-dir -r requirements.txt -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 # Copy packages first (shared dependencies)
 COPY packages/ ./packages/
