@@ -21,9 +21,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Clean Docker build cache
+        run: |
+          echo "=== Cleaning Docker build cache ==="
+          docker builder prune -a -f
+          docker system prune -f
+          echo "=== Docker space after cleanup ==="
+          docker system df
+          echo "=== Disk space after cleanup ==="
+          df -h
+
       - name: Build all services
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build
+          # Set Docker tmp directory if needed
+          export DOCKER_TMPDIR=/data/docker-tmp
+          mkdir -p $DOCKER_TMPDIR
+          
+          # Build with explicit build args to control space usage
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+            --no-cache \
+            --progress plain
 
       - name: Set up Docker context
         run: |

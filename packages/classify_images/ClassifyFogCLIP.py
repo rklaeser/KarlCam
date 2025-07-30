@@ -27,7 +27,7 @@ class ClassifyFogCLIP:
         }
         
         # Initialize models
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+        self.device = torch.device("cpu")
         print(f"Using device: {self.device}")
         
         # Initialize CLIP for zero-shot classification
@@ -66,7 +66,7 @@ class ClassifyFogCLIP:
         self.clip_classifier = pipeline(
             "zero-shot-image-classification",
             model="openai/clip-vit-base-patch32",
-            device=0 if self.device.type == "cuda" else -1
+            device=-1  # CPU only
         )
         
         # Define fog-related labels for classification

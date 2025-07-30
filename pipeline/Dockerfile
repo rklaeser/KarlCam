@@ -1,5 +1,5 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use PyTorch CPU-only base image
+FROM pytorch/pytorch:latest-cpu
 
 # Set working directory
 WORKDIR /app
