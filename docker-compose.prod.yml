@@ -59,7 +59,7 @@ services:
     mem_limit: 2g
     cpus: 1.0
 
-  # Public-facing frontend
+  # Public-facing frontend with SSL
   public-frontend:
     build:
       context: .
@@ -69,6 +69,11 @@ services:
     
     ports:
       - "80:80"
+      - "443:443"
+      
+    volumes:
+      # Mount SSL certificates from host
+      - /etc/letsencrypt:/etc/nginx/ssl:ro
       
     environment:
       - TZ=America/Los_Angeles
