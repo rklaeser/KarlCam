@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # Data collection pipeline
+  pipeline:
+    build:
+      context: .
+      dockerfile: pipeline/Dockerfile
+    container_name: fogcam-pipeline
+    restart: unless-stopped
+    
+    volumes:
+      # Persist collected images and logs
+      - data:/app/data
+      
+    environment:
+      - TZ=America/Los_Angeles
+      - PYTHONUNBUFFERED=1
+      
+    # Health check to ensure the collector is working
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; exit(0 if os.path.exists('/app/data/collection_log.json') else 1)"]
+      interval: 1h
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    mem_limit: 1g
+    cpus: 0.5
+
+  # FastAPI backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: fogcam-backend
+    restart: unless-stopped
+    
+    volumes:
+      # Share data with pipeline
+      - data:/app/data
+      
+    environment:
+      - TZ=America/Los_Angeles
+      - PYTHONUNBUFFERED=1
+      
+    ports:
+      - "8000:8000"
+      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    mem_limit: 2g
+    cpus: 1.0
+
+  # Public-facing frontend
+  public-frontend:
+    build:
+      context: .
+      dockerfile: public-frontend/Dockerfile
+    container_name: fogcam-public-frontend
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      
+    environment:
+      - TZ=America/Los_Angeles
+      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    depends_on:
+      - backend
+    
+    # Resource limits
+    mem_limit: 512m
+    cpus: 0.5
+
+  # Pipeline management frontend (optional, for development/admin)
+  pipeline-frontend:
+    build:
+      context: .
+      dockerfile: pipeline-frontend/Dockerfile
+    container_name: fogcam-pipeline-frontend
+    restart: unless-stopped
+    
+    ports:
+      - "3001:80"
+      
+    environment:
+      - TZ=America/Los_Angeles
+      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    depends_on:
+      - backend
+    
+    # Resource limits
+    mem_limit: 512m
+    cpus: 0.5
+
+volumes:
+  data:
+    external: true
+
+networks:
+  default:
+    driver: bridge

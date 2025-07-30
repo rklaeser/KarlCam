@@ -1,0 +1,39 @@
+# Ignore development files
+.git
+.github
+README.md
+*.md
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore virtual environment
+venv/
+env/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore collected images (they'll be in volume)
+data/images/*.jpg
+data/images/*.png
+
+# Keep directory structure but ignore large files
+data/analysis/*.png
+data/models/*.pkl
+data/models/*.pth
+
+# Ignore frontend build outputs and dependencies
+*/node_modules/
+*/build/
+*/.next/
+
+# Ignore service-specific virtual environments
+pipeline/venv/
+backend/venv/

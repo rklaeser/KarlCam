@@ -1,0 +1,15 @@
+{
+  "total_collected": 2,
+  "collection_history": [
+    {
+      "filename": "fogcam_20250730_134944.jpg",
+      "timestamp": "2025-07-30T13:49:44.635517",
+      "sf_time": "2025-07-30T13:49:44.635529-07:00"
+    },
+    {
+      "filename": "fogcam_20250730_134945.jpg",
+      "timestamp": "2025-07-30T13:49:45.196603",
+      "sf_time": "2025-07-30T13:49:45.196609-07:00"
+    }
+  ]
+}

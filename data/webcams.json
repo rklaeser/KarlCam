@@ -1,0 +1,22 @@
+{
+  "webcams": [
+    {
+      "id": "fogcam",
+      "name": "SF State University - FogCam",
+      "lat": 37.7219,
+      "lon": -122.4782,
+      "url": "https://www.fogcam.org/fogcam2.jpg",
+      "description": "The original FogCam at San Francisco State University",
+      "active": true
+    },
+    {
+      "id": "ipcamlive",
+      "name": "SF Bay Area - IPCamLive", 
+      "lat": 37.77373862353551,
+      "lon": -122.44887925281085,
+      "url": "https://s30.ipcamlive.com/streams/1ekyvfh53xyzftioa/snapshot.jpg",
+      "description": "SF Bay Area webcam stream",
+      "active": true
+    }
+  ]
+}
