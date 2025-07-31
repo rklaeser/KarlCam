@@ -16,24 +16,21 @@ COPY public-frontend/ .
 # Build the React app
 RUN npm run build
 
-# Production stage with nginx
-FROM nginx:alpine
+# Production stage with simple serve
+FROM node:18-alpine
+
+# Install serve
+RUN npm install -g serve
 
 # Copy built app from build stage
-COPY --from=build /app/build /usr/share/nginx/html
+COPY --from=build /app/build /app
 
-# Create directory for SSL certificates
-RUN mkdir -p /etc/nginx/ssl/live/karlcam.xyz
-
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expose ports 80 and 443
-EXPOSE 80 443
+# Expose port
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start serve
+CMD ["serve", "-s", "/app", "-l", "3000"]

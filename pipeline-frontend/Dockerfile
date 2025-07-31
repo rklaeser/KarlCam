@@ -24,7 +24,7 @@ COPY --from=build /app/build /usr/share/nginx/html
 
 # Create nginx config for React SPA with backend API proxy
 RUN echo 'server { \
-    listen 80; \
+    listen 8080; \
     location / { \
         root /usr/share/nginx/html; \
         index index.html index.htm; \
@@ -46,12 +46,12 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Expose port 8080
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
+    CMD curl -f http://localhost:8080/ || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
