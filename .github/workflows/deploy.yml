@@ -43,12 +43,11 @@ jobs:
 
       - name: Save and load images to remote Docker
         run: |
-          # Save all built images
+          # Save and load images using pipe to avoid disk space issues
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} config --services | while read service; do
             image_name="karlcam-${service}:latest"
-            docker save "$image_name" > "${service}.tar"
-            docker --context ${{ env.DOCKER_CONTEXT_NAME }} load < "${service}.tar"
-            rm "${service}.tar"
+            echo "Transferring $image_name to remote Docker..."
+            docker save "$image_name" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
           done
 
       - name: Create volume if not exists
@@ -79,7 +78,7 @@ jobs:
         run: |
           echo "Cleaning up remote Docker server..."
           docker --context ${{ env.DOCKER_CONTEXT_NAME }} image prune -f
-          docker --context ${{ env.DOCKER_CONTEXT_NAME }} builder prune -f
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} builder prune -a -f
 
       - name: Debug - Check disk space
         if: failure()
