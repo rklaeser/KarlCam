@@ -7,16 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy to K8s
+  build-backend-services:
+    name: Build Backend Services (PyTorch)
     runs-on: self-hosted
     environment: prod
 
     env:
-      DOCKER_HOST: tcp://10.0.0.35:2375
-      K8S_HOST: 10.0.0.40
       DOCKER_COMPOSE_FILE: docker-compose.prod.yml
-      DOCKER_CONTEXT_NAME: fogcam-ctx
 
     steps:
       - name: Checkout code
@@ -27,9 +24,50 @@ jobs:
           docker builder prune -a -f
           docker system prune -f
 
-      - name: Build all services
+      - name: Build Pipeline service
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build --no-parallel
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline
+
+      - name: Build Backend service
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build backend
+
+  build-frontend-services:
+    name: Build Frontend Services
+    runs-on: self-hosted
+    environment: prod
+    needs: build-backend-services
+
+    env:
+      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Public Frontend
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build public-frontend
+
+      - name: Build Pipeline Frontend
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline-frontend
+
+  deploy:
+    name: Deploy to K8s
+    runs-on: self-hosted
+    environment: prod
+    needs: [build-backend-services, build-frontend-services]
+
+    env:
+      DOCKER_HOST: tcp://10.0.0.35:2375
+      K8S_HOST: 10.0.0.40
+      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
+      DOCKER_CONTEXT_NAME: fogcam-ctx
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker context
         run: |
