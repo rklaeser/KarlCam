@@ -1,5 +1,5 @@
-# Shared base image with PyTorch - this is the expensive layer
-FROM python:3.11-slim as pytorch-base
+# Base system dependencies
+FROM python:3.11-slim as system-base
 
 # Install system dependencies for OpenCV and ML libraries
 RUN apt-get update && apt-get install -y \
@@ -11,7 +11,25 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch and torchvision (CPU version) - shared across all services
+# CUDA libraries layer
+FROM system-base as cuda-base
+RUN pip install --no-cache-dir \
+    nvidia-cublas-cu12==12.4.5.8 \
+    nvidia-cufft-cu12==11.2.1.3 \
+    nvidia-curand-cu12==10.3.5.147 \
+    nvidia-cusolver-cu12==11.6.1.9 \
+    nvidia-cusparse-cu12==12.3.1.170 \
+    nvidia-cusparselt-cu12==0.6.2 \
+    nvidia-nccl-cu12==2.21.5 \
+    nvidia-nvtx-cu12==12.4.127 \
+    nvidia-nvjitlink-cu12==12.4.127 \
+    nvidia-cuda-nvrtc-cu12==12.4.127 \
+    nvidia-cuda-runtime-cu12==12.4.127 \
+    nvidia-cuda-cupti-cu12==12.4.127 \
+    nvidia-cudnn-cu12==9.1.0.70
+
+# PyTorch layer (depends on CUDA)
+FROM cuda-base as pytorch-base
 RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 # Set working directory
