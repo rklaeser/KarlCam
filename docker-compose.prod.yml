@@ -5,7 +5,8 @@ services:
   pipeline:
     build:
       context: .
-      dockerfile: pipeline/Dockerfile
+      dockerfile: Dockerfile
+      target: pipeline
     container_name: fogcam-pipeline
     restart: unless-stopped
     
@@ -33,7 +34,8 @@ services:
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
+      target: backend
     container_name: karlcam-backend
     restart: unless-stopped
     

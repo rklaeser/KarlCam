@@ -10,8 +10,6 @@ folium==0.20.0
 pandas==2.3.1
 pytz==2025.2
 transformers==4.54.1
-# PyTorch versions - latest for security (works on CPU)
-torch==2.6.0
-torchvision==0.21.0
+# PyTorch moved to shared base stage
 scikit-learn==1.7.1
 joblib==1.5.1
