@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fogcam-pipeline-frontend
+  namespace: karlcam
+  labels:
+    app: fogcam-pipeline-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fogcam-pipeline-frontend
+  template:
+    metadata:
+      labels:
+        app: fogcam-pipeline-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: karlcam/pipeline-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: TZ
+          value: "America/Los_Angeles"
+        - name: REACT_APP_API_URL
+          value: "http://karlcam-backend"
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fogcam-pipeline-frontend
+  namespace: karlcam
+spec:
+  selector:
+    app: fogcam-pipeline-frontend
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP

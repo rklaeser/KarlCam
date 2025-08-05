@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karlcam-backend
+  namespace: karlcam
+  labels:
+    app: karlcam-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: karlcam-backend
+  template:
+    metadata:
+      labels:
+        app: karlcam-backend
+    spec:
+      containers:
+      - name: backend
+        image: karlcam/backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: TZ
+          value: "America/Los_Angeles"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: karlcam-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: karlcam-backend
+  namespace: karlcam
+spec:
+  selector:
+    app: karlcam-backend
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP

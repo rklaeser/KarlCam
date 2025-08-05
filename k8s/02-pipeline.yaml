@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fogcam-pipeline
+  namespace: karlcam
+  labels:
+    app: fogcam-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fogcam-pipeline
+  template:
+    metadata:
+      labels:
+        app: fogcam-pipeline
+    spec:
+      containers:
+      - name: pipeline
+        image: karlcam/pipeline:latest
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: "America/Los_Angeles"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import os; exit(0 if os.path.exists('/app/data/collection_log.json') else 1)"
+          initialDelaySeconds: 30
+          periodSeconds: 3600
+          timeoutSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: karlcam-data
