@@ -53,19 +53,27 @@ jobs:
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
             --docker host=${{ env.DOCKER_HOST }} || true
 
-      - name: Transfer backend images to remote Docker
+      - name: Transfer and push backend images to registry
         run: |
           for service in pipeline backend; do
-            image_name="karlcam-${service}:latest"
-            echo "Transferring $image_name to remote Docker..."
-            docker save "$image_name" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
+            local_image="karlcam-${service}:latest"
+            registry_image="10.0.0.35:5000/karlcam-${service}:latest"
+            
+            echo "Transferring $local_image to remote Docker..."
+            docker save "$local_image" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
+            
+            echo "Tagging for registry: $registry_image"
+            docker --context ${{ env.DOCKER_CONTEXT_NAME }} tag "$local_image" "$registry_image"
+            
+            echo "Pushing to registry: $registry_image"
+            docker --context ${{ env.DOCKER_CONTEXT_NAME }} push "$registry_image"
           done
 
       - name: Deploy backend services to K8s
         run: |
-          # Update manifests with correct image names
+          # Update manifests with registry image names
           for file in k8s/00-namespace.yaml k8s/01-storage.yaml k8s/02-pipeline.yaml k8s/03-backend.yaml; do
-            sed -i 's|image: karlcam/\([^:]*\):latest|image: karlcam-\1:latest|g' $file
+            sed -i 's|image: karlcam/\([^:]*\):latest|image: 10.0.0.35:5000/karlcam-\1:latest|g' $file
           done
           
           # Copy backend manifests to K8s control plane
@@ -133,19 +141,27 @@ jobs:
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
             --docker host=${{ env.DOCKER_HOST }} || true
 
-      - name: Transfer frontend images to remote Docker
+      - name: Transfer and push frontend images to registry
         run: |
           for service in public-frontend pipeline-frontend; do
-            image_name="karlcam-${service}:latest"
-            echo "Transferring $image_name to remote Docker..."
-            docker save "$image_name" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
+            local_image="karlcam-${service}:latest"
+            registry_image="10.0.0.35:5000/karlcam-${service}:latest"
+            
+            echo "Transferring $local_image to remote Docker..."
+            docker save "$local_image" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
+            
+            echo "Tagging for registry: $registry_image"
+            docker --context ${{ env.DOCKER_CONTEXT_NAME }} tag "$local_image" "$registry_image"
+            
+            echo "Pushing to registry: $registry_image"
+            docker --context ${{ env.DOCKER_CONTEXT_NAME }} push "$registry_image"
           done
 
       - name: Deploy frontend services to K8s
         run: |
-          # Update manifests with correct image names
+          # Update manifests with registry image names
           for file in k8s/04-public-frontend.yaml k8s/05-pipeline-frontend.yaml; do
-            sed -i 's|image: karlcam/\([^:]*\):latest|image: karlcam-\1:latest|g' $file
+            sed -i 's|image: karlcam/\([^:]*\):latest|image: 10.0.0.35:5000/karlcam-\1:latest|g' $file
           done
           
           # Copy frontend manifests to K8s control plane
