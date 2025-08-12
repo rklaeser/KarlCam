@@ -7,13 +7,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-backend-services:
-    name: Build Backend Services (PyTorch)
+  build-and-deploy-backend:
+    name: Build and Deploy Backend Services
     runs-on: self-hosted
     environment: prod
 
     env:
       DOCKER_COMPOSE_FILE: docker-compose.prod.yml
+      DOCKER_HOST: tcp://10.0.0.35:2375
+      K8S_HOST: 10.0.0.40
+      DOCKER_CONTEXT_NAME: fogcam-backend-ctx
 
     steps:
       - name: Checkout code
@@ -32,42 +35,11 @@ jobs:
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build backend
 
-  build-frontend-services:
-    name: Build Frontend Services
-    runs-on: self-hosted
-    environment: prod
-    needs: build-backend-services
-
-    env:
-      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Public Frontend
+      - name: Tag images with correct names
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build public-frontend
-
-      - name: Build Pipeline Frontend
-        run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline-frontend
-
-  deploy-backend:
-    name: Deploy Backend Services to K8s
-    runs-on: self-hosted
-    environment: prod
-    needs: build-backend-services
-
-    env:
-      DOCKER_HOST: tcp://10.0.0.35:2375
-      K8S_HOST: 10.0.0.40
-      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
-      DOCKER_CONTEXT_NAME: fogcam-backend-ctx
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          # Tag images to match K8s manifest names
+          docker tag fogcam-pipeline:latest karlcam-pipeline:latest || true
+          docker tag karlcam-backend:latest karlcam-backend:latest || true
 
       - name: Set up Docker context
         run: |
@@ -100,11 +72,11 @@ jobs:
             sudo kubectl apply -f /tmp/03-backend.yaml
             
             # Wait for backend deployments
-            sudo kubectl -n karlcam rollout status deployment/pipeline --timeout=5m
-            sudo kubectl -n karlcam rollout status deployment/backend --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/fogcam-pipeline --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/karlcam-backend --timeout=5m
             
             # Show backend status
-            sudo kubectl -n karlcam get pods -l app.kubernetes.io/component=backend
+            sudo kubectl -n karlcam get pods
           EOF
 
       - name: Cleanup
@@ -112,21 +84,35 @@ jobs:
         run: |
           docker context rm ${{ env.DOCKER_CONTEXT_NAME }} --force || true
 
-  deploy-frontend:
-    name: Deploy Frontend Services to K8s
+  build-and-deploy-frontend:
+    name: Build and Deploy Frontend Services
     runs-on: self-hosted
     environment: prod
-    needs: [build-frontend-services, deploy-backend]
+    needs: build-and-deploy-backend
 
     env:
+      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
       DOCKER_HOST: tcp://10.0.0.35:2375
       K8S_HOST: 10.0.0.40
-      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
       DOCKER_CONTEXT_NAME: fogcam-frontend-ctx
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Build Public Frontend
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build public-frontend
+
+      - name: Build Pipeline Frontend
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline-frontend
+
+      - name: Tag images with correct names
+        run: |
+          # Tag images to match K8s manifest names
+          docker tag karlcam-public-frontend:latest karlcam-public-frontend:latest || true
+          docker tag fogcam-pipeline-frontend:latest karlcam-pipeline-frontend:latest || true
 
       - name: Set up Docker context
         run: |
@@ -157,8 +143,8 @@ jobs:
             sudo kubectl apply -f /tmp/05-pipeline-frontend.yaml
             
             # Wait for frontend deployments
-            sudo kubectl -n karlcam rollout status deployment/public-frontend --timeout=5m
-            sudo kubectl -n karlcam rollout status deployment/pipeline-frontend --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/karlcam-public-frontend --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/fogcam-pipeline-frontend --timeout=5m
             
             # Show complete status
             sudo kubectl -n karlcam get all
