@@ -41,6 +41,13 @@ jobs:
           docker tag fogcam-pipeline:latest karlcam-pipeline:latest || true
           docker tag karlcam-backend:latest karlcam-backend:latest || true
 
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.K8S_HOST }} >> ~/.ssh/known_hosts
+
       - name: Set up Docker context
         run: |
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
@@ -62,10 +69,10 @@ jobs:
           done
           
           # Copy backend manifests to K8s control plane
-          scp -o StrictHostKeyChecking=no k8s/00-namespace.yaml k8s/01-storage.yaml k8s/02-pipeline.yaml k8s/03-backend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
+          scp k8s/00-namespace.yaml k8s/01-storage.yaml k8s/02-pipeline.yaml k8s/03-backend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
           
           # Apply backend manifests
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.K8S_HOST }} << 'EOF'
+          ssh ubuntu@${{ env.K8S_HOST }} << 'EOF'
             sudo kubectl apply -f /tmp/00-namespace.yaml
             sudo kubectl apply -f /tmp/01-storage.yaml
             sudo kubectl apply -f /tmp/02-pipeline.yaml
@@ -114,6 +121,13 @@ jobs:
           docker tag karlcam-public-frontend:latest karlcam-public-frontend:latest || true
           docker tag fogcam-pipeline-frontend:latest karlcam-pipeline-frontend:latest || true
 
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.K8S_HOST }} >> ~/.ssh/known_hosts
+
       - name: Set up Docker context
         run: |
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
@@ -135,10 +149,10 @@ jobs:
           done
           
           # Copy frontend manifests to K8s control plane
-          scp -o StrictHostKeyChecking=no k8s/04-public-frontend.yaml k8s/05-pipeline-frontend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
+          scp k8s/04-public-frontend.yaml k8s/05-pipeline-frontend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
           
           # Apply frontend manifests
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.K8S_HOST }} << 'EOF'
+          ssh ubuntu@${{ env.K8S_HOST }} << 'EOF'
             sudo kubectl apply -f /tmp/04-public-frontend.yaml
             sudo kubectl apply -f /tmp/05-pipeline-frontend.yaml
             
