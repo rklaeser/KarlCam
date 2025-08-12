@@ -53,17 +53,17 @@ jobs:
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline-frontend
 
-  deploy:
-    name: Deploy to K8s
+  deploy-backend:
+    name: Deploy Backend Services to K8s
     runs-on: self-hosted
     environment: prod
-    needs: [build-backend-services, build-frontend-services]
+    needs: build-backend-services
 
     env:
       DOCKER_HOST: tcp://10.0.0.35:2375
       K8S_HOST: 10.0.0.40
       DOCKER_COMPOSE_FILE: docker-compose.prod.yml
-      DOCKER_CONTEXT_NAME: fogcam-ctx
+      DOCKER_CONTEXT_NAME: fogcam-backend-ctx
 
     steps:
       - name: Checkout code
@@ -74,38 +74,93 @@ jobs:
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
             --docker host=${{ env.DOCKER_HOST }} || true
 
-      - name: Save and load images to remote Docker
+      - name: Transfer backend images to remote Docker
         run: |
-          # Transfer images to remote Docker (your K3s nodes will pull from here)
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} config --services | while read service; do
+          for service in pipeline backend; do
             image_name="karlcam-${service}:latest"
             echo "Transferring $image_name to remote Docker..."
             docker save "$image_name" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
           done
 
-      - name: Deploy to K8s
+      - name: Deploy backend services to K8s
         run: |
           # Update manifests with correct image names
-          for file in k8s/*.yaml; do
+          for file in k8s/00-namespace.yaml k8s/01-storage.yaml k8s/02-pipeline.yaml k8s/03-backend.yaml; do
             sed -i 's|image: karlcam/\([^:]*\):latest|image: karlcam-\1:latest|g' $file
           done
           
-          # Copy manifests to K8s control plane
-          scp -o StrictHostKeyChecking=no k8s/*.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
+          # Copy backend manifests to K8s control plane
+          scp -o StrictHostKeyChecking=no k8s/00-namespace.yaml k8s/01-storage.yaml k8s/02-pipeline.yaml k8s/03-backend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
           
-          # Apply manifests
+          # Apply backend manifests
           ssh -o StrictHostKeyChecking=no ubuntu@${{ env.K8S_HOST }} << 'EOF'
             sudo kubectl apply -f /tmp/00-namespace.yaml
             sudo kubectl apply -f /tmp/01-storage.yaml
             sudo kubectl apply -f /tmp/02-pipeline.yaml
             sudo kubectl apply -f /tmp/03-backend.yaml
+            
+            # Wait for backend deployments
+            sudo kubectl -n karlcam rollout status deployment/pipeline --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/backend --timeout=5m
+            
+            # Show backend status
+            sudo kubectl -n karlcam get pods -l app.kubernetes.io/component=backend
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker context rm ${{ env.DOCKER_CONTEXT_NAME }} --force || true
+
+  deploy-frontend:
+    name: Deploy Frontend Services to K8s
+    runs-on: self-hosted
+    environment: prod
+    needs: [build-frontend-services, deploy-backend]
+
+    env:
+      DOCKER_HOST: tcp://10.0.0.35:2375
+      K8S_HOST: 10.0.0.40
+      DOCKER_COMPOSE_FILE: docker-compose.prod.yml
+      DOCKER_CONTEXT_NAME: fogcam-frontend-ctx
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker context
+        run: |
+          docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
+            --docker host=${{ env.DOCKER_HOST }} || true
+
+      - name: Transfer frontend images to remote Docker
+        run: |
+          for service in public-frontend pipeline-frontend; do
+            image_name="karlcam-${service}:latest"
+            echo "Transferring $image_name to remote Docker..."
+            docker save "$image_name" | docker --context ${{ env.DOCKER_CONTEXT_NAME }} load
+          done
+
+      - name: Deploy frontend services to K8s
+        run: |
+          # Update manifests with correct image names
+          for file in k8s/04-public-frontend.yaml k8s/05-pipeline-frontend.yaml; do
+            sed -i 's|image: karlcam/\([^:]*\):latest|image: karlcam-\1:latest|g' $file
+          done
+          
+          # Copy frontend manifests to K8s control plane
+          scp -o StrictHostKeyChecking=no k8s/04-public-frontend.yaml k8s/05-pipeline-frontend.yaml ubuntu@${{ env.K8S_HOST }}:/tmp/
+          
+          # Apply frontend manifests
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.K8S_HOST }} << 'EOF'
             sudo kubectl apply -f /tmp/04-public-frontend.yaml
             sudo kubectl apply -f /tmp/05-pipeline-frontend.yaml
             
-            # Wait for deployments
-            sudo kubectl -n karlcam rollout status deployment --timeout=5m
+            # Wait for frontend deployments
+            sudo kubectl -n karlcam rollout status deployment/public-frontend --timeout=5m
+            sudo kubectl -n karlcam rollout status deployment/pipeline-frontend --timeout=5m
             
-            # Show status
+            # Show complete status
             sudo kubectl -n karlcam get all
           EOF
 
