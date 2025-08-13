@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fogcam-pipeline
+  name: karlcam-pipeline
   namespace: karlcam
   labels:
-    app: fogcam-pipeline
+    app: karlcam-pipeline
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fogcam-pipeline
+      app: karlcam-pipeline
   template:
     metadata:
       labels:
-        app: fogcam-pipeline
+        app: karlcam-pipeline
     spec:
       containers:
       - name: pipeline

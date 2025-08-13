@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fogcam-pipeline-frontend
+  name: karlcam-pipeline-frontend
   namespace: karlcam
   labels:
-    app: fogcam-pipeline-frontend
+    app: karlcam-pipeline-frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fogcam-pipeline-frontend
+      app: karlcam-pipeline-frontend
   template:
     metadata:
       labels:
-        app: fogcam-pipeline-frontend
+        app: karlcam-pipeline-frontend
     spec:
       containers:
       - name: frontend
@@ -43,11 +43,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fogcam-pipeline-frontend
+  name: karlcam-pipeline-frontend
   namespace: karlcam
 spec:
   selector:
-    app: fogcam-pipeline-frontend
+    app: karlcam-pipeline-frontend
   ports:
   - port: 80
     targetPort: 8080

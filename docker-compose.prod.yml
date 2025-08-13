@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: pipeline
-    container_name: fogcam-pipeline
+    container_name: karlcam-pipeline
     restart: unless-stopped
     
     volumes:
@@ -102,7 +102,7 @@ services:
     build:
       context: .
       dockerfile: pipeline-frontend/Dockerfile
-    container_name: fogcam-pipeline-frontend
+    container_name: karlcam-pipeline-frontend
     restart: unless-stopped
     
     ports:
