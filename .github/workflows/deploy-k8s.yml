@@ -35,6 +35,14 @@ jobs:
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build backend
 
+      - name: List built images
+        run: |
+          echo "=== All Docker images after build ==="
+          docker images --format "table {{.Repository}}:{{.Tag}}" | head -20
+          echo ""
+          echo "=== Images matching karlcam/pipeline/backend ==="
+          docker images | grep -E "(karlcam|pipeline|backend)" || echo "No matching images found"
+
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
@@ -124,6 +132,14 @@ jobs:
       - name: Build Pipeline Frontend
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pipeline-frontend
+
+      - name: List built frontend images
+        run: |
+          echo "=== All Docker images after frontend build ==="
+          docker images --format "table {{.Repository}}:{{.Tag}}" | head -20
+          echo ""
+          echo "=== Images matching karlcam/frontend ==="
+          docker images | grep -E "(karlcam|frontend)" || echo "No matching images found"
 
       - name: Set up SSH key
         run: |
