@@ -53,6 +53,14 @@ jobs:
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
             --docker host=${{ env.DOCKER_HOST }} || true
 
+      - name: Clean up remote Docker host
+        run: |
+          echo "Cleaning up Docker host to free space..."
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} system prune -af || true
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} volume prune -f || true
+          echo "Available space after cleanup:"
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} system df
+
       - name: Transfer and push backend images to registry
         run: |
           for service in pipeline backend; do
@@ -140,6 +148,13 @@ jobs:
         run: |
           docker context create ${{ env.DOCKER_CONTEXT_NAME }} \
             --docker host=${{ env.DOCKER_HOST }} || true
+
+      - name: Clean up remote Docker host
+        run: |
+          echo "Cleaning up Docker host to free space..."
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} system prune -af || true
+          echo "Available space after cleanup:"
+          docker --context ${{ env.DOCKER_CONTEXT_NAME }} system df
 
       - name: Transfer and push frontend images to registry
         run: |
