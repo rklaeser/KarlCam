@@ -103,22 +103,11 @@ const App: React.FC = () => {
         <div className="header-content">
           <div className="title-section">
             <h1>🌫️ KarlCam</h1>
-            <p>The San Francisco Fog is named Karl</p>
+            <p>Live fog tracking for San Francisco</p>
           </div>
           
-          <div className="update-section">
-            {lastUpdated && (
-              <div className="last-updated">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </div>
-            )}
-            <button 
-              onClick={refreshData} 
-              className="refresh-btn"
-              disabled={loading}
-            >
-              {loading ? '🔄' : '↻'} Refresh
-            </button>
+          <div className="karl-info">
+            <p>Who is <a href="https://x.com/KarlTheFog" target="_blank" rel="noopener noreferrer">Karl the Fog</a>?</p>
           </div>
         </div>
       </header>

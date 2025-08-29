@@ -21,9 +21,6 @@ const AboutCreator: React.FC = () => {
               <a href="https://www.reedklaeser.com/" target="_blank" rel="noopener noreferrer" className="portfolio-link">
                 🌐 reedklaeser.com
               </a>
-              <a href="https://www.linkedin.com/in/reed-klaeser/" target="_blank" rel="noopener noreferrer" className="linkedin-link">
-                <img src="/Linkedin.png" alt="LinkedIn" className="linkedin-icon" />
-              </a>
             </div>
           </div>
         </div>

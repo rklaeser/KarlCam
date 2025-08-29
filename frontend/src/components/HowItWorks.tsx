@@ -18,7 +18,7 @@ const HowItWorks: React.FC = () => {
           <div className="architecture-overview">
             <h3>Architecture Overview</h3>
             <p>
-              KarlCam pulls images from public webcams and scores them for fog using a <strong>Convolutional Neural Network</strong>. It is built on <strong>Google Cloud Platform</strong> for about $10/month.
+              KarlCam pulls images from public webcams and scores them for fog using Gemini and in time a <strong>Convolutional Neural Network</strong>. It is built on <strong>Google Cloud Platform</strong> for about $10/month.
             </p>
           </div>
 
@@ -35,7 +35,7 @@ const HowItWorks: React.FC = () => {
                 <strong>Review:</strong> An admin site let's me review the fog scores and correct them if needed.
               </li>
               <li>
-                <strong>Model Training:</strong> After collecting a few hundred images from a range of conditions a supervised learning approach was used to train the Convolutional Neural Network (CNN). This is cheaper, faster, and more accurate than Gemini because this simple classification is well suited for a CNN.
+                <strong>Model Training:</strong> After enough images are collected from a range of conditions a supervised learning approach will be used to train the Convolutional Neural Network (CNN) and will replace Gemini. This should be cheaper, faster, and more accurate than Gemini because this simple classification is well suited for a CNN.
               </li>
               <li>
                   <strong>KarlCam Website:</strong> The latest fog scores using the CNN are displayed on the website.
