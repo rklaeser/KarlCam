@@ -33,7 +33,8 @@ ENV DATA_DIR=/app/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8001/api/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8001}/api/health || exit 1
 
 # Run the FastAPI backend
-CMD ["python", "-m", "uvicorn", "review.backend.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Use shell form to allow environment variable expansion for PORT
+CMD python -m uvicorn review.backend.main:app --host 0.0.0.0 --port ${PORT:-8001}

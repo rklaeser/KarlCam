@@ -15,8 +15,6 @@ interface CameraConditions {
   fog_score: number;
   fog_level: string;
   confidence: number;
-  weather_detected: boolean;
-  weather_confidence: number;
   active: boolean;
 }
 
@@ -37,7 +35,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8002';
+  const API_BASE = process.env.NODE_ENV === 'production' ? 'https://api.karlcam.xyz' : 'http://localhost:8002';
 
   useEffect(() => {
     loadData();

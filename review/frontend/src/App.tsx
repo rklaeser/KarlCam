@@ -69,7 +69,7 @@ const App: React.FC = () => {
   const [availableCameras, setAvailableCameras] = useState<string[]>([]);
   const [showCameraManager, setShowCameraManager] = useState(false);
 
-  const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8001';
+  const API_BASE = process.env.NODE_ENV === 'production' ? 'https://admin-api.karlcam.xyz' : 'http://localhost:8001';
 
   useEffect(() => {
     loadImages(true); // true = reset/initial load

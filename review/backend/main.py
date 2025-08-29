@@ -16,8 +16,11 @@ from psycopg2.extras import RealDictCursor
 from google.cloud import storage
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file only in development
+# In Cloud Run, environment variables are set directly
+if os.environ.get('GAE_ENV', '').startswith('standard') or not os.environ.get('K_SERVICE'):
+    # Only load .env if not running in Cloud Run
+    load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

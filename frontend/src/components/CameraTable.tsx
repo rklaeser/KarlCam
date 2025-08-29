@@ -9,8 +9,6 @@ interface CameraConditions {
   fog_score: number;
   fog_level: string;
   confidence: number;
-  weather_detected: boolean;
-  weather_confidence: number;
   active: boolean;
 }
 
@@ -43,14 +41,15 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
     }
   };
 
-  const getFogDescription = (fogLevel: string, fogScore: number): string => {
-    if (fogScore < 20) {
+  const getFogDescription = (fogScore: number): string => {
+    const score = fogScore || 0;
+    if (score < 20) {
       return 'Crystal clear visibility with blue skies';
-    } else if (fogScore < 40) {
+    } else if (score < 40) {
       return 'Light haze or mist in the air';
-    } else if (fogScore < 60) {
+    } else if (score < 60) {
       return 'Moderate fog reducing visibility';
-    } else if (fogScore < 80) {
+    } else if (score < 80) {
       return 'Heavy fog with limited visibility';
     } else {
       return 'Very dense fog, visibility severely limited';
@@ -78,7 +77,6 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
               <th>Conditions</th>
               <th>Fog Score</th>
               <th>AI Confidence</th>
-              <th>Weather Analysis</th>
               <th>Last Updated</th>
             </tr>
           </thead>
@@ -90,7 +88,7 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
                     📹 {camera.name}
                   </div>
                   <div className="camera-location">
-                    📍 {camera.lat.toFixed(3)}, {camera.lon.toFixed(3)}
+                    📍 {camera.lat?.toFixed(3) || '0.000'}, {camera.lon?.toFixed(3) || '0.000'}
                   </div>
                 </td>
                 
@@ -102,7 +100,7 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
                     <div className="fog-details">
                       <div className="fog-level">{camera.fog_level}</div>
                       <div className="fog-description">
-                        {getFogDescription(camera.fog_level, camera.fog_score)}
+                        {getFogDescription(camera.fog_score)}
                       </div>
                     </div>
                   </div>
@@ -110,15 +108,15 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
                 
                 <td className="fog-score">
                   <div className="metric-value">
-                    <span className="score">{camera.fog_score.toFixed(1)}</span>
+                    <span className="score">{camera.fog_score?.toFixed(1) || '0.0'}</span>
                     <span className="score-max">/100</span>
                   </div>
                   <div className="score-bar">
                     <div 
                       className="score-fill" 
                       style={{ 
-                        width: `${camera.fog_score}%`,
-                        backgroundColor: camera.fog_score > 50 ? '#dc3545' : '#28a745'
+                        width: `${camera.fog_score || 0}%`,
+                        backgroundColor: (camera.fog_score || 0) > 50 ? '#dc3545' : '#28a745'
                       }}
                     ></div>
                   </div>
@@ -127,22 +125,12 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
                 <td className="ai-confidence">
                   <span 
                     className="confidence"
-                    style={{ color: getConfidenceColor(camera.confidence) }}
+                    style={{ color: getConfidenceColor(camera.confidence || 0) }}
                   >
-                    {camera.confidence.toFixed(1)}%
+                    {camera.confidence?.toFixed(1) || '0.0'}%
                   </span>
                 </td>
                 
-                <td className="weather-analysis">
-                  <div className="weather-status">
-                    <span className={`status-indicator ${camera.weather_detected ? 'fog-detected' : 'clear-detected'}`}>
-                      {camera.weather_detected ? '🌫️ Fog' : '☀️ Clear'}
-                    </span>
-                    <div className="weather-confidence">
-                      {camera.weather_confidence.toFixed(1)}% confident
-                    </div>
-                  </div>
-                </td>
                 
                 <td className="timestamp">
                   🕐 {formatTimestamp(camera.timestamp)}
