@@ -1,0 +1,40 @@
+# Multi-stage build for React app
+FROM node:18-alpine as build
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files from the correct context path
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code from the correct context path
+COPY frontend/ .
+
+# Accept API URL as build argument
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
+# Build the React app
+RUN npm run build
+
+# Production stage with simple serve
+FROM node:18-alpine
+
+# Install serve
+RUN npm install -g serve
+
+# Copy built app from build stage
+COPY --from=build /app/build /app
+
+# Expose port (Cloud Run uses PORT environment variable)
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-80} || exit 1
+
+# Start serve (use PORT environment variable or default to 80)
+CMD ["sh", "-c", "serve -s /app -l ${PORT:-80}"]

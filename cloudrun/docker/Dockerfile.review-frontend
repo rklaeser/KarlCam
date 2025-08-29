@@ -1,0 +1,47 @@
+# Multi-stage build for Review Frontend
+FROM node:18-alpine as build
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY review/frontend/package.json ./
+
+# Install dependencies (including dev deps for building)
+RUN npm install
+
+# Copy source code
+COPY review/frontend/ ./
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built assets
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY cloudrun/docker/nginx-review.conf /etc/nginx/conf.d/default.conf
+
+# Install curl for health checks and envsubst for environment variable substitution
+RUN apk add --no-cache curl gettext
+
+# Create startup script to substitute environment variables
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'export BACKEND_URL=${BACKEND_URL:-"http://localhost:8001"}' >> /docker-entrypoint.sh && \
+    echo 'envsubst "\$BACKEND_URL" < /etc/nginx/conf.d/default.conf > /tmp/nginx.conf' >> /docker-entrypoint.sh && \
+    echo 'mv /tmp/nginx.conf /etc/nginx/conf.d/default.conf' >> /docker-entrypoint.sh && \
+    echo 'nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Start with custom entrypoint script
+CMD ["/docker-entrypoint.sh"]

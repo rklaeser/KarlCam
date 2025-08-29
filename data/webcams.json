@@ -17,6 +17,42 @@
       "url": "https://s30.ipcamlive.com/streams/1ekyvfh53xyzftioa/snapshot.jpg",
       "description": "SF Bay Area webcam stream",
       "active": true
+    },
+    {
+      "id": "marina-district",
+      "name": "North West: Marina District",
+      "lat": 37.807256,
+      "lon": -122.447382,
+      "url": "https://s73.ipcamlive.com/streams/49cvwwtp7y2s3k5lg/snapshot.jpg",
+      "description": "Marina District webcam facing northwest",
+      "active": true
+    },
+    {
+      "id": "montara-mountain",
+      "name": "South-East: Montara Mountain - North Peak",
+      "lat": 37.589,
+      "lon": -122.482,
+      "url": "http://windy:windy@k6hn.dynu.net:1055/montara_mtn_000.jpg",
+      "description": "Montara Mountain North Peak webcam facing southeast",
+      "active": true
+    },
+    {
+      "id": "pacifica-pier",
+      "name": "Pacifica Municipal Pier",
+      "lat": 37.632,
+      "lon": -122.494,
+      "url": "https://www.mixdivr.org/livecam/pier_image.jpg",
+      "description": "Municipal Pier in Pacifica, CA",
+      "active": true
+    },
+    {
+      "id": "caltrans-i80-us101",
+      "name": "East: TV304 -- I-80 : US-101",
+      "lat": 37.769,
+      "lon": -122.406,
+      "url": "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv304i80us101/tv304i80us101.jpg",
+      "description": "Caltrans traffic camera at I-80 and US-101 junction facing east",
+      "active": true
     }
   ]
 }
