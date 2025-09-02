@@ -21,6 +21,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from db.manager import DatabaseManager
 from db.connection import get_db_connection, execute_query
 from psycopg2.extras import RealDictCursor
+from google.cloud import storage
+from fastapi.responses import StreamingResponse
+import io
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +50,9 @@ CACHE_DURATION = 300  # 5 minutes cache
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")
+
+# Initialize Google Cloud Storage client
+storage_client = storage.Client()
 
 # In-memory cache
 cache = {
@@ -122,6 +128,8 @@ def get_webcam_list() -> List[Dict]:
                 "name": webcam.name,
                 "lat": webcam.latitude,
                 "lon": webcam.longitude,
+                "url": webcam.url,
+                "video_url": webcam.video_url or "",
                 "description": webcam.description or "",
                 "active": webcam.active
             }
@@ -244,6 +252,76 @@ async def get_webcams():
         "timestamp": datetime.now().isoformat(),
         "count": len(webcam_data)
     }
+
+@app.get("/api/public/cameras/{camera_id}/latest-image")
+async def get_latest_image_url(camera_id: str):
+    """Get the latest collected image URL for a camera"""
+    try:
+        db_manager = DatabaseManager()
+        
+        # Get recent images for this camera (limit 1 for latest)
+        recent_images = db_manager.get_recent_images(webcam_id=camera_id, days=30)
+        
+        if not recent_images:
+            raise HTTPException(status_code=404, detail=f"No collected images found for camera {camera_id}")
+        
+        # Get the most recent image (it's a dictionary, not a model object)
+        latest_image = recent_images[0]
+        
+        # Convert GCS path to public URL
+        gcs_path = latest_image['cloud_storage_path']
+        if gcs_path.startswith('gs://'):
+            # Convert gs://bucket/path to https://storage.googleapis.com/bucket/path
+            public_url = gcs_path.replace('gs://', 'https://storage.googleapis.com/')
+        else:
+            public_url = gcs_path
+        
+        return {
+            "camera_id": camera_id,
+            "image_url": f"/api/images/{latest_image['image_filename']}",
+            "filename": latest_image['image_filename'],
+            "timestamp": latest_image['timestamp'].isoformat(),
+            "age_hours": (datetime.now().replace(tzinfo=latest_image['timestamp'].tzinfo) - latest_image['timestamp']).total_seconds() / 3600
+        }
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching latest image for {camera_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch latest image")
+
+@app.get("/api/images/{filename}")
+async def serve_image(filename: str):
+    """Serve image from Cloud Storage"""
+    try:
+        bucket = storage_client.bucket(BUCKET_NAME)
+        blob = bucket.blob(f"images/{filename}")
+        
+        if not blob.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Download the image data
+        image_data = blob.download_as_bytes()
+        
+        # Determine content type based on file extension
+        content_type = "image/jpeg"  # Default
+        if filename.lower().endswith('.png'):
+            content_type = "image/png"
+        elif filename.lower().endswith('.gif'):
+            content_type = "image/gif"
+        elif filename.lower().endswith('.webp'):
+            content_type = "image/webp"
+        
+        # Return the image data as a streaming response
+        return StreamingResponse(
+            io.BytesIO(image_data),
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=3600"}  # Cache for 1 hour
+        )
+        
+    except Exception as e:
+        logger.error(f"Error serving image {filename}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to serve image")
 
 @app.get("/api/public/cameras/{camera_id}")
 async def get_camera_detail(camera_id: str, hours: Optional[int] = 24):

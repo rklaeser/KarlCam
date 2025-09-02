@@ -1,12 +1,12 @@
-.PHONY: help start-api start-frontend start-review-backend start-review-frontend start-collect start-sql clean
+.PHONY: help start-api start-frontend start-admin-backend start-admin-frontend start-collect start-sql clean
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  start-api            - Setup and start the API server (http://localhost:8002)"
 	@echo "  start-frontend       - Setup and start the main frontend development server (http://localhost:3000)"
-	@echo "  start-review-backend - Setup and start the review backend server (http://localhost:8001)"
-	@echo "  start-review-frontend- Setup and start the review frontend development server (http://localhost:3001)"
+	@echo "  start-admin-backend  - Setup and start the admin backend server (http://localhost:8001)"
+	@echo "  start-admin-frontend - Setup and start the admin frontend development server (http://localhost:3001)"
 	@echo "  start-collect        - Setup and run the dual scoring collector locally"
 	@echo "  start-sql           - Start Cloud SQL Proxy for local development"
 	@echo "  clean               - Remove virtual environments and node_modules"
@@ -37,20 +37,20 @@ start-frontend:
 	@echo "Starting frontend development server on http://localhost:3000"
 	cd web/frontend && npm start
 
-# Review backend: setup venv + install deps + start
-start-review-backend:
-	@echo "Setting up and starting review backend server..."
-	cd review/backend && python3 -m venv venv
-	cd review/backend && source venv/bin/activate && pip install -r requirements.txt
-	@echo "Starting review backend server on http://localhost:8001"
-	cd review/backend && source venv/bin/activate && python main.py
+# Admin backend: setup venv + install deps + start
+start-admin-backend:
+	@echo "Setting up and starting admin backend server..."
+	cd admin/backend && python3 -m venv venv || true
+	cd admin/backend && source venv/bin/activate && pip install -r requirements.txt
+	@echo "Starting admin backend server on http://localhost:8001"
+	cd admin/backend && source venv/bin/activate && python main.py
 
-# Review frontend: npm install + start
-start-review-frontend:
-	@echo "Setting up and starting review frontend development server..."
-	cd review/frontend && npm install
-	@echo "Starting review frontend development server on http://localhost:3001"
-	cd review/frontend && npm start
+# Admin frontend: npm install + start
+start-admin-frontend:
+	@echo "Setting up and starting admin frontend development server..."
+	cd admin/frontend && npm install
+	@echo "Starting admin frontend development server on http://localhost:3001"
+	cd admin/frontend && npm start
 
 # Collector: setup venv + install deps + run
 start-collect:
@@ -85,8 +85,8 @@ start-sql:
 clean:
 	@echo "Cleaning up virtual environments and node_modules..."
 	rm -rf web/api/venv
-	rm -rf review/backend/venv
+	rm -rf admin/backend/venv
 	rm -rf collect/venv
 	rm -rf web/frontend/node_modules
-	rm -rf review/frontend/node_modules
+	rm -rf admin/frontend/node_modules
 	@echo "Cleanup complete!"

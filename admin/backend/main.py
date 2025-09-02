@@ -431,7 +431,7 @@ async def get_cameras():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, description, url, created_at
+                    SELECT id, name, description, url, video_url, created_at
                     FROM webcams
                     ORDER BY name
                 """)
@@ -442,6 +442,7 @@ async def get_cameras():
                     "name": cam['name'],
                     "description": cam['description'],
                     "url": cam['url'],
+                    "video_url": cam.get('video_url', ''),
                     "created_at": cam['created_at'].isoformat() if cam['created_at'] else None
                 }
                 for cam in cameras
@@ -460,10 +461,10 @@ async def create_camera(camera_data: dict):
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO webcams (name, description, url)
-                    VALUES (%s, %s, %s)
-                    RETURNING id, name, description, url, created_at
-                """, (camera_data['name'], camera_data['description'], camera_data['url']))
+                    INSERT INTO webcams (name, description, url, video_url)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, name, description, url, video_url, created_at
+                """, (camera_data['name'], camera_data['description'], camera_data['url'], camera_data.get('video_url', '')))
                 camera = cur.fetchone()
                 conn.commit()
                 return {
@@ -471,6 +472,7 @@ async def create_camera(camera_data: dict):
                     "name": camera['name'],
                     "description": camera['description'],
                     "url": camera['url'],
+                    "video_url": camera.get('video_url', ''),
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except Exception as e:
@@ -478,17 +480,17 @@ async def create_camera(camera_data: dict):
         raise HTTPException(status_code=500, detail="Failed to create camera")
 
 @app.put("/api/cameras/{camera_id}")
-async def update_camera(camera_id: int, camera_data: dict):
+async def update_camera(camera_id: str, camera_data: dict):
     """Update a camera"""
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     UPDATE webcams 
-                    SET name = %s, description = %s, url = %s
+                    SET name = %s, description = %s, url = %s, video_url = %s
                     WHERE id = %s
-                    RETURNING id, name, description, url, created_at
-                """, (camera_data['name'], camera_data['description'], camera_data['url'], camera_id))
+                    RETURNING id, name, description, url, video_url, created_at
+                """, (camera_data['name'], camera_data['description'], camera_data['url'], camera_data.get('video_url', ''), camera_id))
                 camera = cur.fetchone()
                 if not camera:
                     raise HTTPException(status_code=404, detail="Camera not found")
@@ -498,6 +500,7 @@ async def update_camera(camera_id: int, camera_data: dict):
                     "name": camera['name'],
                     "description": camera['description'],
                     "url": camera['url'],
+                    "video_url": camera.get('video_url', ''),
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except HTTPException:
@@ -507,7 +510,7 @@ async def update_camera(camera_id: int, camera_data: dict):
         raise HTTPException(status_code=500, detail="Failed to update camera")
 
 @app.delete("/api/cameras/{camera_id}")
-async def delete_camera(camera_id: int):
+async def delete_camera(camera_id: str):
     """Delete a camera"""
     try:
         with get_db_connection() as conn:

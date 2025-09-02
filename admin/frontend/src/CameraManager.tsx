@@ -3,10 +3,11 @@ import axios from 'axios';
 import './CameraManager.css';
 
 interface Camera {
-  id: number;
+  id: string;
   name: string;
   description: string;
   url: string;
+  video_url?: string;
   created_at: string;
 }
 
@@ -24,7 +25,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    url: ''
+    url: '',
+    video_url: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,7 +55,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
     setFormData({
       name: camera.name,
       description: camera.description,
-      url: camera.url
+      url: camera.url,
+      video_url: camera.video_url || ''
     });
     setIsEditing(false);
     setIsCreating(false);
@@ -66,7 +69,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
     setFormData({
       name: '',
       description: '',
-      url: ''
+      url: '',
+      video_url: ''
     });
   };
 
@@ -82,7 +86,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
       setFormData({
         name: selectedCamera.name,
         description: selectedCamera.description,
-        url: selectedCamera.url
+        url: selectedCamera.url,
+        video_url: selectedCamera.video_url || ''
       });
     }
   };
@@ -186,13 +191,24 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
                 </div>
 
                 <div className="form-group">
-                  <label>URL</label>
+                  <label>Image URL</label>
                   <input
                     type="text"
                     value={formData.url}
                     onChange={(e) => setFormData({...formData, url: e.target.value})}
                     disabled={!isEditing && !isCreating}
                     placeholder="https://example.com/camera.jpg"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Video URL (Live Stream)</label>
+                  <input
+                    type="text"
+                    value={formData.video_url}
+                    onChange={(e) => setFormData({...formData, video_url: e.target.value})}
+                    disabled={!isEditing && !isCreating}
+                    placeholder="https://example.com/live-stream"
                   />
                 </div>
 
