@@ -1,97 +1,128 @@
 import React, { useState } from 'react';
-import './HowItWorks.css';
 
 const HowItWorks: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div id="learn-more" className="how-it-works">
-      <div className="how-it-works-header" onClick={() => setIsExpanded(!isExpanded)}>
-        <h2>How This Works</h2>
-        <button className="expand-toggle">
+    <div id="learn-more" className="overflow-hidden">
+      <div 
+        className="flex justify-between items-center p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white cursor-pointer select-none hover:from-blue-700 hover:to-purple-700 transition-all duration-300"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <h2 className="text-2xl font-semibold m-0">How This Works</h2>
+        <button className="w-9 h-9 bg-white/20 border-2 border-white text-white rounded-full text-2xl flex items-center justify-center hover:bg-white/30 hover:scale-110 transition-all duration-300">
           {isExpanded ? '−' : '+'}
         </button>
       </div>
 
       {isExpanded && (
-        <div className="how-it-works-content">
-          <div className="architecture-overview">
-            <h3>Architecture Overview</h3>
-            <p>
+        <div className="p-6 space-y-8">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Architecture Overview</h3>
+            <p className="text-gray-700 leading-relaxed">
               KarlCam pulls images from public webcams and scores them for fog using Gemini and in time a <strong>Convolutional Neural Network</strong>. It is built on <strong>Google Cloud Platform</strong> for about $10/month.
             </p>
           </div>
 
-          <div className="data-flow">
-            <h3>Data Flow</h3>
-            <ol className="flow-steps">
-              <li>
-                <strong>Image Collection:</strong> Every half hour a Google Cloud Run job captures images from public webcams around San Francisco and scores them for fog using Gemini.
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Data Flow</h3>
+            <ol className="space-y-4 text-gray-700">
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">1</span>
+                <div>
+                  <strong>Image Collection:</strong> Every half hour a Google Cloud Run job captures images from public webcams around San Francisco and scores them for fog using Gemini.
+                </div>
               </li>
-              <li>
-                <strong>Cloud Storage and SQL:</strong> Images are stored in Google Cloud Storage buckets and fog scores are stored in a Cloud SQL DB.
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">2</span>
+                <div>
+                  <strong>Cloud Storage and SQL:</strong> Images are stored in Google Cloud Storage buckets and fog scores are stored in a Cloud SQL DB.
+                </div>
               </li>
-              <li>
-                <strong>Review:</strong> An admin site let's me review the fog scores and correct them if needed.
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">3</span>
+                <div>
+                  <strong>Review:</strong> An admin site let's me review the fog scores and correct them if needed.
+                </div>
               </li>
-              <li>
-                <strong>Model Training:</strong> After enough images are collected from a range of conditions a supervised learning approach will be used to train the Convolutional Neural Network (CNN) and will replace Gemini. This should be cheaper, faster, and more accurate than Gemini but we shall see.
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">4</span>
+                <div>
+                  <strong>Model Training:</strong> After enough images are collected from a range of conditions a supervised learning approach will be used to train the Convolutional Neural Network (CNN) and will replace Gemini. This should be cheaper, faster, and more accurate than Gemini but we shall see.
+                </div>
               </li>
-              <li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">5</span>
+                <div>
                   <strong>KarlCam Website:</strong> The latest fog scores are displayed here.
+                </div>
               </li>
             </ol>
           </div>
 
-          <div className="gcp-services">
-            <h3>Google Cloud Services Used</h3>
-            <div className="services-grid">
-              <div className="service-card">
-                <h4>Cloud Storage</h4>
-                <p>Stores webcam images with automatic lifecycle management</p>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-6">Google Cloud Services Used</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-2">Cloud Storage</h4>
+                <p className="text-sm text-gray-600">Stores webcam images with automatic lifecycle management</p>
               </div>
-              <div className="service-card">
-                <h4>Cloud SQL</h4>
-                <p>PostgreSQL database for metadata and analysis results</p>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-2">Cloud SQL</h4>
+                <p className="text-sm text-gray-600">PostgreSQL database for metadata and analysis results</p>
               </div>
-              <div className="service-card">
-                <h4>Gemini API</h4>
-                <p> AI model for initial training data</p>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-2">Gemini API</h4>
+                <p className="text-sm text-gray-600">AI model for initial training data</p>
               </div>
-              <div className="service-card">
-                <h4>Cloud Scheduler</h4>
-                <p>Automates image collection every 30 minutes</p>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-2">Cloud Scheduler</h4>
+                <p className="text-sm text-gray-600">Automates image collection every 30 minutes</p>
               </div>
-              <div className="service-card">
-                <h4>Cloud Run</h4>
-                <p>Containerized deployment with auto-scaling. Cheaper than always on containers in Kubernetes because of low volume.</p>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 md:col-span-2 lg:col-span-1">
+                <h4 className="font-semibold text-gray-800 mb-2">Cloud Run</h4>
+                <p className="text-sm text-gray-600">Containerized deployment with auto-scaling. Cheaper than always on containers in Kubernetes because of low volume.</p>
               </div>
             </div>
           </div>
 
-          <div className="data-flow">
-            <h3>Coming Soon</h3>
-            <ul className="flow-steps">
-              <li>
-                <strong>Train CNN:</strong> Train and deploy the CNN. Will the CNN beat Gemini? Should individual models be trained for each camera location to 
-                account for unique viewing angles, lighting conditions, and dirt on the lens. 
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Coming Soon</h3>
+            <ul className="space-y-4 text-gray-700">
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></span>
+                <div>
+                  <strong>Train CNN:</strong> Train and deploy the CNN. Will the CNN beat Gemini? Should individual models be trained for each camera location to 
+                  account for unique viewing angles, lighting conditions, and dirt on the lens.
+                </div>
               </li>
-              <li>
-                <strong>Can satellite images do better?</strong> Are NOAA satellite images high enough resolution, frequent enough to be useful? Do they do better than KarlCam? 
-                Would they aid training? See <a href="https://fog.today" target="_blank" rel="noopener noreferrer">fog.today</a> for an example.
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></span>
+                <div>
+                  <strong>Can satellite images do better?</strong> Are NOAA satellite images high enough resolution, frequent enough to be useful? Do they do better than KarlCam? 
+                  Would they aid training? See <a href="https://fog.today" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fog.today</a> for an example.
+                </div>
               </li>
-              <li>
-                <strong>Add cameras:</strong> <a href="https://www.windy.com/-Webcams-San-Francisco-Marina-District/webcams/1693167474?37.796,-122.461,12" target="_blank" rel="noopener noreferrer">Windy</a> has a list of SF cameras, I'll add a few more outside SF and keep looking for others in SF.
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></span>
+                <div>
+                  <strong>Add cameras:</strong> <a href="https://www.windy.com/-Webcams-San-Francisco-Marina-District/webcams/1693167474?37.796,-122.461,12" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Windy</a> has a list of SF cameras, I'll add a few more outside SF and keep looking for others in SF.
+                </div>
               </li>
             </ul>
           </div>
 
-          <div className="learn-more-links">
-            <h3>Learn More</h3> 
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Learn More</h3>
             <ul>
               <li>
-                <a href="https://github.com/rklaeser/KarlCam" target="_blank" rel="noopener noreferrer">
-                  View Source Code on GitHub
+                <a 
+                  href="https://github.com/rklaeser/KarlCam" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 underline font-medium"
+                >
+                  📂 View Source Code on GitHub
                 </a>
               </li>
             </ul>

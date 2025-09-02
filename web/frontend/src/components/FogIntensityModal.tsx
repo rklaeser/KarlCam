@@ -1,5 +1,4 @@
 import React from 'react';
-import './FogIntensityModal.css';
 
 interface FogIntensityModalProps {
   isOpen: boolean;
@@ -54,52 +53,66 @@ const FogIntensityModal: React.FC<FogIntensityModalProps> = ({ isOpen, onClose }
   };
 
   return (
-    <div className="modal-wrapper" onClick={handleBackdropClick}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-content">
-          <div className="modal-header">
-            <h2>Fog Intensity Levels</h2>
-            <button className="modal-close" onClick={onClose}>×</button>
-          </div>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div 
+        className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-800">Fog Intensity Levels</h2>
+          <button 
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full text-2xl font-light"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+            Our AI analyzes webcam images to determine fog intensity on a scale of 0-100. 
+            Here are examples of each fog level:
+          </p>
           
-          <div className="modal-body">
-            <p className="modal-description">
-              Our AI analyzes webcam images to determine fog intensity on a scale of 0-100. 
-              Here are examples of each fog level:
-            </p>
-            
-            <div className="intensity-examples">
-              {fogLevels.map((level) => (
-                <div key={level.level} className="intensity-card">
-                  <div className="intensity-header">
-                    <div className="intensity-badge" style={{ backgroundColor: level.color }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {fogLevels.map((level) => (
+              <div key={level.level} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="p-4 bg-gray-50">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div 
+                      className="px-3 py-1 rounded-full text-white text-sm font-semibold"
+                      style={{ backgroundColor: level.color }}
+                    >
                       {level.range}
                     </div>
-                    <h3>{level.level}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">{level.level}</h3>
                   </div>
-                  
-                  <div className="intensity-image-placeholder">
-                    <div className="placeholder-content" style={{ borderColor: level.color }}>
-                      <div className="placeholder-icon">🌫️</div>
-                      <div className="placeholder-text">
-                        Example Image
-                        <span className="placeholder-note">{level.level}</span>
-                      </div>
+                </div>
+                
+                <div className="p-4">
+                  <div className="aspect-video bg-gray-100 rounded-lg border-2 border-dashed flex flex-col items-center justify-center mb-4" style={{ borderColor: level.color }}>
+                    <div className="text-4xl mb-2">🌫️</div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-gray-600">Example Image</div>
+                      <div className="text-xs text-gray-500">{level.level}</div>
                     </div>
                   </div>
                   
-                  <p className="intensity-description">{level.description}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{level.description}</p>
                 </div>
-              ))}
-            </div>
-            
-            <div className="modal-footer-note">
-              <p>
-                <strong>Note:</strong> Fog scores are determined by analyzing visual features 
-                including visibility, contrast, and atmospheric conditions. Weather conditions 
-                and time of day can affect accuracy.
-              </p>
-            </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-gray-700 leading-relaxed">
+              <strong>Note:</strong> Fog scores are determined by analyzing visual features 
+              including visibility, contrast, and atmospheric conditions. Weather conditions 
+              and time of day can affect accuracy.
+            </p>
           </div>
         </div>
       </div>

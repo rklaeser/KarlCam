@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import logging
 
 # Add parent directory to path to import db module
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from db.manager import DatabaseManager
 from db.connection import get_db_connection, execute_query
