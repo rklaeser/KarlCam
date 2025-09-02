@@ -10,7 +10,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 PROJECT_ID="${PROJECT_ID:-karlcam}"
 REGION="${REGION:-us-central1}"
 API_IMAGE_TAG="${API_IMAGE_TAG:-v2}"
-BUCKET_NAME="${BUCKET_NAME:-karlcam-v2-data}"
+BUCKET_NAME="${BUCKET_NAME:-karlcam-fog-data}"
 
 echo "🚀 Deploying KarlCam V2 API Service"
 echo "==================================="
