@@ -61,53 +61,48 @@ db_manager = DatabaseManager()
 def get_latest_camera_data() -> List[Dict]:
     """Get latest camera data from database"""
     try:
-        # Get the most recent collection for each webcam with labels
-        query = """
-            SELECT DISTINCT ON (ic.webcam_id)
-                ic.webcam_id,
-                w.name,
-                w.latitude as lat,
-                w.longitude as lon,
-                w.description,
-                il.fog_score,
-                il.fog_level,
-                il.confidence,
-                ic.timestamp,
-                w.active
-            FROM image_collections ic
-            LEFT JOIN webcams w ON ic.webcam_id = w.id
-            LEFT JOIN image_labels il ON ic.id = il.image_id
-            WHERE il.fog_score IS NOT NULL
-            ORDER BY ic.webcam_id, ic.timestamp DESC
-        """
+        db_manager = DatabaseManager()
         
-        results = execute_query(query, cursor_factory=RealDictCursor)
+        # Get recent images with labels (last 1 day to get latest)
+        recent_images = db_manager.get_recent_images(days=1)
+        
+        # Group by webcam_id and get latest per camera
+        latest_per_camera = {}
+        for img in recent_images:
+            webcam_id = img['webcam_id']
+            # Keep the most recent image per camera
+            if (webcam_id not in latest_per_camera or 
+                img['timestamp'] > latest_per_camera[webcam_id]['timestamp']):
+                latest_per_camera[webcam_id] = img
+        
         cameras = []
+        webcams = db_manager.get_active_webcams()
         
-        for row in results:
-            # Map our data to frontend expectations
-            fog_score = row['fog_score'] or 0
-            confidence = row['confidence'] or 0
-            fog_detected = fog_score > 20  # Consider fog detected if score > 20
+        # Create camera data with latest conditions
+        for webcam in webcams:
+            latest_img = latest_per_camera.get(webcam.id)
             
-            # Handle null lat/lon values
-            lat = row['lat'] if row['lat'] is not None else 37.7749  # Default to SF
-            lon = row['lon'] if row['lon'] is not None else -122.4194  # Default to SF
-            
-            cameras.append({
-                "id": row['webcam_id'],
-                "name": row['name'] or f"Camera {row['webcam_id']}",
-                "lat": lat,
-                "lon": lon,
-                "description": row['description'] or "",
-                "fog_score": fog_score,
-                "fog_level": row['fog_level'] or "Unknown",
-                "confidence": confidence * 100,  # Convert 0-1 to 0-100 for frontend
-                "weather_detected": fog_detected,
-                "weather_confidence": confidence * 100,  # Same as confidence
-                "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None,
-                "active": row['active'] if row['active'] is not None else True
-            })
+            if latest_img and latest_img.get('labels'):
+                # Use first label for fog data
+                label = latest_img['labels'][0]
+                fog_score = label.get('fog_score', 0) or 0
+                confidence = label.get('confidence', 0) or 0
+                fog_detected = fog_score > 20
+                
+                cameras.append({
+                    "id": webcam.id,
+                    "name": webcam.name,
+                    "lat": webcam.latitude or 37.7749,
+                    "lon": webcam.longitude or -122.4194,
+                    "description": webcam.description or "",
+                    "fog_score": fog_score,
+                    "fog_level": label.get('fog_level', 'Unknown'),
+                    "confidence": confidence * 100,  # Convert 0-1 to 0-100
+                    "weather_detected": fog_detected,
+                    "weather_confidence": confidence * 100,
+                    "timestamp": latest_img['timestamp'].isoformat() if latest_img['timestamp'] else None,
+                    "active": webcam.active
+                })
         
         return cameras
                 
@@ -118,28 +113,20 @@ def get_latest_camera_data() -> List[Dict]:
 def get_webcam_list() -> List[Dict]:
     """Get all webcams from database"""
     try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT id, name, latitude as lat, longitude as lon, description, active
-                    FROM webcams
-                    ORDER BY name
-                """)
-                
-                results = cur.fetchall()
-                webcams = []
-                
-                for row in results:
-                    webcams.append({
-                        "id": row['id'],
-                        "name": row['name'],
-                        "lat": row['lat'],
-                        "lon": row['lon'],
-                        "description": row['description'] or "",
-                        "active": row['active']
-                    })
-                
-                return webcams
+        db_manager = DatabaseManager()
+        webcams = db_manager.get_active_webcams()
+        
+        return [
+            {
+                "id": webcam.id,
+                "name": webcam.name,
+                "lat": webcam.latitude,
+                "lon": webcam.longitude,
+                "description": webcam.description or "",
+                "active": webcam.active
+            }
+            for webcam in webcams
+        ]
                 
     except Exception as e:
         logger.error(f"Error fetching webcams: {e}")
@@ -148,35 +135,29 @@ def get_webcam_list() -> List[Dict]:
 def get_camera_history(camera_id: str, hours: int = 24) -> List[Dict]:
     """Get historical data for a specific camera"""
     try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT 
-                        ic.fog_score,
-                        ic.fog_level,
-                        ic.confidence,
-                        ic.timestamp,
-                        ic.reasoning
-                    FROM image_collections ic
-                    WHERE ic.webcam_id = %s 
-                        AND ic.status = 'success'
-                        AND ic.timestamp >= NOW() - INTERVAL %s
-                    ORDER BY ic.timestamp DESC
-                """, (camera_id, f'{hours} hours'))
+        db_manager = DatabaseManager()
+        days = max(1, hours / 24)  # Convert hours to days, minimum 1 day
+        
+        # Get recent images for this specific camera
+        recent_images = db_manager.get_recent_images(webcam_id=camera_id, days=days)
+        
+        history = []
+        for img in recent_images:
+            if img.get('labels'):
+                # Use first label for fog data
+                label = img['labels'][0]
                 
-                results = cur.fetchall()
-                history = []
-                
-                for row in results:
-                    history.append({
-                        "fog_score": row['fog_score'],
-                        "fog_level": row['fog_level'],
-                        "confidence": row['confidence'],
-                        "timestamp": row['timestamp'].isoformat() if row['timestamp'] else None,
-                        "reasoning": row['reasoning']
-                    })
-                
-                return history
+                history.append({
+                    "fog_score": label.get('fog_score', 0),
+                    "fog_level": label.get('fog_level', 'Unknown'),
+                    "confidence": label.get('confidence', 0),
+                    "timestamp": img['timestamp'].isoformat() if img['timestamp'] else None,
+                    "reasoning": ""  # Not available in aggregated query
+                })
+        
+        # Sort by timestamp descending
+        history.sort(key=lambda x: x['timestamp'] or '', reverse=True)
+        return history
                 
     except Exception as e:
         logger.error(f"Error fetching camera history: {e}")

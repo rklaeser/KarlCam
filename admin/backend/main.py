@@ -132,107 +132,96 @@ class ReviewBackend:
     ) -> List[ImageForReview]:
         """Get images from database for review"""
         try:
-            with get_db_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    query = """
-                        SELECT 
-                            ic.id,
-                            ic.image_filename,
-                            ic.timestamp,
-                            ic.webcam_id,
-                            ic.fog_score,
-                            ic.fog_level,
-                            ic.confidence,
-                            ic.reasoning,
-                            ic.visibility_estimate,
-                            ic.weather_conditions,
-                            w.name as webcam_name,
-                            w.description as webcam_description
-                        FROM image_collections ic
-                        LEFT JOIN webcams w ON ic.webcam_id = w.id
-                        WHERE ic.status = 'success'
-                    """
-                    params = []
+            # Calculate days from time_range
+            days = 7  # default
+            if time_range:
+                if time_range == '1h':
+                    days = 1/24
+                elif time_range == '24h':
+                    days = 1
+                elif time_range == '3d':
+                    days = 3
+                elif time_range == '7d':
+                    days = 7
+                elif time_range == '30d':
+                    days = 30
+                elif time_range == 'all':
+                    days = 365  # Use a large number for "all"
+            
+            # Get recent images with labels using DatabaseManager
+            all_images = self.db_manager.get_recent_images(days=days)
+            
+            # Filter by cameras if provided
+            if cameras:
+                camera_list = cameras.split(',')
+                all_images = [img for img in all_images if img.get('webcam_name') in camera_list]
+            
+            # Filter by fog levels if provided
+            if fog_levels:
+                fog_level_list = fog_levels.split(',')
+                filtered_images = []
+                for img in all_images:
+                    labels = img.get('labels', [])
+                    if labels and any(label.get('fog_level') in fog_level_list for label in labels):
+                        filtered_images.append(img)
+                all_images = filtered_images
+            
+            # Filter by confidence if provided
+            if confidence_filter:
+                confidence_filters = confidence_filter.split(',')
+                filtered_images = []
+                for img in all_images:
+                    labels = img.get('labels', [])
+                    if not labels:
+                        continue
+                    label = labels[0]  # Use first label
+                    conf = label.get('confidence', 0)
                     
-                    # Add camera filtering
-                    if cameras:
-                        camera_list = cameras.split(',')
-                        placeholders = ','.join(['%s'] * len(camera_list))
-                        query += f" AND w.name IN ({placeholders})"
-                        params.extend(camera_list)
-                    
-                    # Add time range filtering
-                    if time_range and time_range != 'all':
-                        if time_range == '1h':
-                            query += " AND ic.timestamp >= NOW() - INTERVAL '1 hour'"
-                        elif time_range == '24h':
-                            query += " AND ic.timestamp >= NOW() - INTERVAL '1 day'"
-                        elif time_range == '3d':
-                            query += " AND ic.timestamp >= NOW() - INTERVAL '3 days'"
-                        elif time_range == '7d':
-                            query += " AND ic.timestamp >= NOW() - INTERVAL '7 days'"
-                        elif time_range == '30d':
-                            query += " AND ic.timestamp >= NOW() - INTERVAL '30 days'"
-                    
-                    # Add confidence filtering
-                    if confidence_filter:
-                        confidence_filters = confidence_filter.split(',')
-                        confidence_conditions = []
-                        for cf in confidence_filters:
-                            if cf == 'low':
-                                confidence_conditions.append("ic.confidence < 0.7")
-                            elif cf == 'medium':  
-                                confidence_conditions.append("(ic.confidence >= 0.7 AND ic.confidence < 0.9)")
-                            elif cf == 'high':
-                                confidence_conditions.append("ic.confidence >= 0.9")
-                        if confidence_conditions:
-                            query += f" AND ({' OR '.join(confidence_conditions)})"
-                    
-                    # Add fog level filtering
-                    if fog_levels:
-                        fog_level_list = fog_levels.split(',')
-                        placeholders = ','.join(['%s'] * len(fog_level_list))
-                        query += f" AND ic.fog_level IN ({placeholders})"
-                        params.extend(fog_level_list)
-                    
-                    query += " ORDER BY ic.timestamp DESC"
-                    
-                    if limit:
-                        query += " LIMIT %s"
-                        params.append(limit)
-                    
-                    if offset:
-                        query += " OFFSET %s"
-                        params.append(offset)
-                    
-                    cur.execute(query, params)
-                    rows = cur.fetchall()
-                    
-                    # Convert to the expected format
-                    images = []
-                    for row in rows:
-                        images.append(ImageForReview(
-                            id=str(row['id']),
-                            filename=row['image_filename'],
-                            timestamp=row['timestamp'].isoformat() if row['timestamp'] else None,
-                            webcam_info=WebcamInfo(
-                                id=row['webcam_id'] or 'unknown',
-                                name=row.get('webcam_name') or f"Camera {row['webcam_id']}" or 'Unknown Camera',
-                                description=row.get('webcam_description') or ''
-                            ),
-                            gemini_label=GeminiLabel(
-                                fog_score=row['fog_score'],
-                                fog_level=row['fog_level'], 
-                                confidence=row['confidence'],
-                                reasoning=row['reasoning'],
-                                visibility_estimate=row['visibility_estimate'],
-                                weather_conditions=row['weather_conditions'] or []
-                            ),
-                            image_url=f"/api/images/cloud/{row['image_filename']}",
+                    for cf in confidence_filters:
+                        if cf == 'low' and conf < 0.7:
+                            filtered_images.append(img)
+                            break
+                        elif cf == 'medium' and 0.7 <= conf < 0.9:
+                            filtered_images.append(img)
+                            break
+                        elif cf == 'high' and conf >= 0.9:
+                            filtered_images.append(img)
+                            break
+                all_images = filtered_images
+            
+            # Apply pagination
+            start = offset or 0
+            end = start + (limit or 50)
+            paginated_images = all_images[start:end]
+            
+            # Convert to the expected format
+            images = []
+            for img in paginated_images:
+                labels = img.get('labels', [])
+                if labels:
+                    label = labels[0]  # Use first label for now
+                    images.append(ImageForReview(
+                        id=str(img['id']),
+                        filename=img['image_filename'],
+                        timestamp=img['timestamp'].isoformat() if img['timestamp'] else None,
+                        webcam_info=WebcamInfo(
+                            id=img['webcam_id'] or 'unknown',
+                            name=img.get('webcam_name') or f"Camera {img['webcam_id']}" or 'Unknown Camera',
+                            description=''  # Not included in aggregated query
+                        ),
+                        gemini_label=GeminiLabel(
+                            fog_score=label.get('fog_score', 0),
+                            fog_level=label.get('fog_level', 'Unknown'), 
+                            confidence=label.get('confidence', 0),
+                            reasoning='',  # Not included in aggregated query
+                            visibility_estimate='',  # Not included in aggregated query
+                            weather_conditions=[]  # Not included in aggregated query
+                        ),
+                        image_url=f"/api/images/cloud/{img['image_filename']}",
                             status="pending"
                         ))
-                    
-                    return images
+            
+            return images
                     
         except Exception as e:
             logger.error(f"Error fetching pending images: {e}")
@@ -249,16 +238,17 @@ class ReviewBackend:
                             ic.image_filename,
                             ic.timestamp,
                             ic.webcam_id,
-                            ic.fog_score,
-                            ic.fog_level,
-                            ic.confidence,
-                            ic.reasoning,
-                            ic.visibility_estimate,
-                            ic.weather_conditions,
+                            il.fog_score,
+                            il.fog_level,
+                            il.confidence,
+                            il.reasoning,
+                            il.visibility_estimate,
+                            il.weather_conditions,
                             w.name as webcam_name,
                             w.description as webcam_description
                         FROM image_collections ic
                         LEFT JOIN webcams w ON ic.webcam_id = w.id
+                        LEFT JOIN image_labels il ON ic.id = il.image_id
                         WHERE ic.id = %s
                     """, (image_id,))
                     
@@ -569,7 +559,7 @@ async def serve_cloud_image(filename: str):
     
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(f"images/review/pending/{filename}")
+        blob = bucket.blob(f"images/{filename}")
         
         if not blob.exists():
             raise HTTPException(status_code=404, detail="Image not found")
