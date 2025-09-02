@@ -67,11 +67,11 @@ start-collect:
 # Cloud SQL Proxy: start proxy for local development
 start-sql:
 	@echo "🔌 Starting Cloud SQL Proxy for local development..."
-	@echo "📍 Connecting to: karlcam:us-central1:karlcam-db-v2"
+	@echo "📍 Connecting to: karlcam:us-central1:karlcam-db"
 	@echo "🔗 Local port: 5432"
 	@echo ""
 	@echo "To use in another terminal, set these environment variables:"
-	@echo "  export DATABASE_URL=\"postgresql://karlcam:<password>@localhost:5432/karlcam\""
+	@echo "  export DATABASE_URL=\"postgresql://karlcam:<password>@localhost:5432/karlcam_v2\""
 	@echo "  export BUCKET_NAME=\"karlcam-fog-data\""
 	@echo ""
 	@echo "Get the password with:"
@@ -79,7 +79,7 @@ start-sql:
 	@echo ""
 	@echo "Press Ctrl+C to stop the proxy"
 	@echo "----------------------------------------"
-	cloud-sql-proxy karlcam:us-central1:karlcam-db-v2 --port 5432 --gcloud-auth
+	cloud-sql-proxy karlcam:us-central1:karlcam-db --port 5432 --gcloud-auth
 
 # Clean up
 clean:

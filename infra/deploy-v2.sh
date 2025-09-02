@@ -137,7 +137,7 @@ if [ "$1" == "all" ] || [ "$#" -eq 0 ]; then
     echo "  • API: https://api.karl.cam"
     echo "  • Frontend: https://karl.cam"
     echo "  • Admin: https://admin.karl.cam"
-    echo "  • Database: Cloud SQL PostgreSQL (karlcam-db-v2)"
+    echo "  • Database: Cloud SQL PostgreSQL (karlcam-db)"
     echo "  • Storage: Cloud Storage (${BUCKET_NAME})"
     echo ""
     echo "💰 Cost Model:"
