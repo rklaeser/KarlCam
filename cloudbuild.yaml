@@ -195,6 +195,7 @@ steps:
       - 'karlcam-collector-v2'
       - '--image=gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
       - '--region=${_REGION}'
+      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
       - '--quiet'
     waitFor: ['push-collector']
 
