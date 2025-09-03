@@ -1,0 +1,38 @@
+# Include package-lock.json files for npm ci
+!**/package-lock.json
+
+# Exclude node_modules (they should be built by npm ci)
+**/node_modules/
+
+# Exclude build outputs  
+**/build/
+**/.next/
+
+# Exclude development files
+.git/
+.github/
+**/*.md
+README.md
+
+# Exclude Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.so
+
+# Exclude virtual environments
+venv/
+env/
+**/venv/
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+
+# Exclude large data files but keep directory structure
+data/images/*.jpg
+data/images/*.png
+data/analysis/*.png
+data/models/*.pkl
+data/models/*.pth

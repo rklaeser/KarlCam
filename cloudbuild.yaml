@@ -1,0 +1,212 @@
+# Cloud Build configuration for KarlCam
+# Simple version that rebuilds all containers on every push to main
+
+substitutions:
+  _PROJECT_ID: karlcam
+  _REGION: us-central1
+  _BUCKET_NAME: karlcam-v2-data
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+steps:
+  # Build all Docker images in parallel
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-collector'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
+      - '-f'
+      - 'collect/infra/Dockerfile.prod'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-api'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-api:latest'
+      - '-f'
+      - 'web/api/infra/Dockerfile.prod'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-admin-backend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:latest'
+      - '-f'
+      - 'admin/backend/infra/Dockerfile.prod'
+      - '.'
+
+  # Build frontend with npm
+  - name: 'node:18-alpine'
+    id: 'npm-frontend'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cd web/frontend
+        npm ci
+        REACT_APP_API_BASE_URL=https://api.karl.cam npm run build
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-frontend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:latest'
+      - '-f'
+      - 'web/frontend/infra/Dockerfile.prod'
+      - '.'
+    waitFor: ['npm-frontend']
+
+  # Build admin frontend with npm
+  - name: 'node:18-alpine'
+    id: 'npm-admin-frontend'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cd admin/frontend
+        npm ci
+        REACT_APP_API_BASE_URL=https://admin-api.karl.cam npm run build
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-admin-frontend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:latest'
+      - '-f'
+      - 'admin/frontend/infra/Dockerfile.prod'
+      - '.'
+    waitFor: ['npm-admin-frontend']
+
+  # Push all images
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-collector'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-collector']
+    waitFor: ['build-collector']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-api'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-api']
+    waitFor: ['build-api']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-frontend']
+    waitFor: ['build-frontend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-admin-backend'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend']
+    waitFor: ['build-admin-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-admin-frontend'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend']
+    waitFor: ['build-admin-frontend']
+
+  # Deploy all services to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-api'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'karlcam-api-v2'
+      - '--image=gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=PROJECT_ID=${_PROJECT_ID},BUCKET_NAME=${_BUCKET_NAME}'
+      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
+      - '--quiet'
+    waitFor: ['push-api']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-frontend'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'karlcam-frontend-v2'
+      - '--image=gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--quiet'
+    waitFor: ['push-frontend']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-admin-backend'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'karlcam-admin-backend-v2'
+      - '--image=gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--set-env-vars=PROJECT_ID=${_PROJECT_ID},BUCKET_NAME=${_BUCKET_NAME}'
+      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
+      - '--quiet'
+    waitFor: ['push-admin-backend']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-admin-frontend'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'karlcam-admin-frontend-v2'
+      - '--image=gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--quiet'
+    waitFor: ['push-admin-frontend']
+
+  # Update Cloud Run Job for collector
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'update-collector-job'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'jobs'
+      - 'update'
+      - 'karlcam-collector-v2'
+      - '--image=gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--quiet'
+    waitFor: ['push-collector']
+
+images:
+  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-api:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:latest'
+
+timeout: '1800s'
