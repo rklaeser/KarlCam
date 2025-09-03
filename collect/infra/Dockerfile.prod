@@ -23,7 +23,6 @@ COPY db/ ./db/
 
 # Copy all collector files including database utilities
 COPY collect/ ./collect/
-COPY packages/ ./packages/
 COPY data/ ./data/
 
 # Environment variables for production

@@ -23,9 +23,6 @@ RUN pip install --no-cache-dir -r collect/requirements.txt -f https://download.p
 # Copy centralized database module
 COPY db/ ./db/
 
-# Copy packages first (shared dependencies)
-COPY packages/ ./packages/
-
 # Copy collect-specific code
 COPY collect/ ./collect/
 
