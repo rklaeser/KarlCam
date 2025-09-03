@@ -1,6 +1,3 @@
-# Include package-lock.json files for npm ci
-!**/package-lock.json
-
 # Exclude node_modules (they should be built by npm ci)
 **/node_modules/
 
