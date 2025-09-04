@@ -46,7 +46,6 @@ app.add_middleware(
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
 BUCKET_NAME = os.getenv("BUCKET_NAME", "karlcam-fog-data")
-CACHE_DURATION = 300  # 5 minutes cache
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")
@@ -54,12 +53,6 @@ if not DATABASE_URL:
 # Initialize Google Cloud Storage client
 storage_client = storage.Client()
 
-# In-memory cache
-cache = {
-    "latest_data": None,
-    "webcams": None,
-    "last_update": None
-}
 
 # Initialize DatabaseManager
 db_manager = DatabaseManager()
@@ -171,34 +164,6 @@ def get_camera_history(camera_id: str, hours: int = 24) -> List[Dict]:
         logger.error(f"Error fetching camera history: {e}")
         return []
 
-def should_refresh_cache() -> bool:
-    """Check if cache needs refresh"""
-    if not cache["last_update"]:
-        return True
-    return datetime.now() - cache["last_update"] > timedelta(seconds=CACHE_DURATION)
-
-def refresh_cache():
-    """Refresh cached data from database"""
-    if not should_refresh_cache():
-        return
-    
-    logger.info("Refreshing cache from database")
-    
-    # Get latest camera data
-    camera_data = get_latest_camera_data()
-    cache["latest_data"] = {
-        "cameras": camera_data,
-        "timestamp": datetime.now().isoformat(),
-        "count": len(camera_data)
-    }
-    
-    # Get webcam list
-    webcam_data = get_webcam_list()
-    cache["webcams"] = {
-        "webcams": webcam_data
-    }
-    
-    cache["last_update"] = datetime.now()
 
 @app.get("/")
 async def root():
@@ -230,18 +195,12 @@ async def health():
 @app.get("/api/public/cameras")
 async def get_cameras():
     """Get latest fog assessment for all cameras"""
-    refresh_cache()
-    
-    if cache["latest_data"]:
-        return cache["latest_data"]
-    else:
-        # Fallback to fresh data
-        camera_data = get_latest_camera_data()
-        return {
-            "cameras": camera_data,
-            "timestamp": datetime.now().isoformat(),
-            "count": len(camera_data)
-        }
+    camera_data = get_latest_camera_data()
+    return {
+        "cameras": camera_data,
+        "timestamp": datetime.now().isoformat(),
+        "count": len(camera_data)
+    }
 
 @app.get("/api/public/webcams")
 async def get_webcams():
