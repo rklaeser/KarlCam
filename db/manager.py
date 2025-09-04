@@ -27,7 +27,7 @@ class DatabaseManager:
         """Get all active webcams"""
         query = """
             SELECT id, name, url, video_url, latitude, longitude, description, active,
-                   created_at, updated_at
+                   camera_type, discovery_metadata, created_at, updated_at
             FROM webcams
             WHERE active = true
             ORDER BY name
@@ -44,6 +44,8 @@ class DatabaseManager:
                 longitude=row['longitude'],
                 description=row['description'],
                 active=row['active'],
+                camera_type=row['camera_type'] or 'static_url',
+                discovery_metadata=row['discovery_metadata'],
                 created_at=row['created_at'],
                 updated_at=row['updated_at']
             )
@@ -83,6 +85,21 @@ class DatabaseManager:
         
         result = execute_insert(query, webcam.to_dict(), returning=True)
         return result[0] if result else webcam.id
+    
+    def update_webcam_discovery(self, webcam_id: str, url: str, discovery_metadata: Dict[str, Any]):
+        """Update webcam URL and discovery metadata after successful discovery"""
+        import json
+        
+        query = """
+            UPDATE webcams 
+            SET url = %s, 
+                discovery_metadata = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """
+        
+        execute_query(query, (url, json.dumps(discovery_metadata), webcam_id))
+        logger.info(f"Updated discovery info for webcam {webcam_id}")
     
     # ============= Collection Operations =============
     

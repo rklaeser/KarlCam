@@ -4,7 +4,7 @@
 substitutions:
   _PROJECT_ID: karlcam
   _REGION: us-central1
-  _BUCKET_NAME: karlcam-v2-data
+  _BUCKET_NAME: karlcam-fog-data
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -7,6 +7,7 @@ Images are stored for later labeling with different techniques
 import os
 import json
 import requests
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from PIL import Image
@@ -72,6 +73,121 @@ def save_metadata_to_cloud_storage(metadata: dict, filename: str) -> bool:
         logger.error(f"❌ Failed to save metadata to Cloud Storage: {e}")
         return False
 
+def discover_ipcamlive_url(alias: str) -> Optional[str]:
+    """
+    Discover the current snapshot URL for an IPCamLive camera
+    
+    Args:
+        alias: The camera alias (e.g., '5e863c6e0e66d' for Marina District)
+    
+    Returns:
+        Current snapshot URL or None if discovery fails
+    """
+    try:
+        player_url = f"https://g1.ipcamlive.com/player/player.php?alias={alias}"
+        response = requests.get(player_url, timeout=10)
+        response.raise_for_status()
+        
+        content = response.text
+        
+        # Extract address and streamid using regex
+        address_match = re.search(r"var address = '([^']+)';", content)
+        streamid_match = re.search(r"var streamid = '([^']+)';", content)
+        
+        if not address_match or not streamid_match:
+            logger.error(f"Could not extract address/streamid from player page for alias {alias}")
+            return None
+            
+        address = address_match.group(1)
+        streamid = streamid_match.group(1)
+        
+        # Construct snapshot URL
+        # Convert http to https for security
+        if address.startswith('http://'):
+            address = 'https://' + address[7:]
+            
+        snapshot_url = f"{address}streams/{streamid}/snapshot.jpg"
+        
+        logger.info(f"🔍 Discovered URL for alias {alias}: {snapshot_url}")
+        return snapshot_url
+        
+    except Exception as e:
+        logger.error(f"❌ Error discovering URL for alias {alias}: {e}")
+        return None
+
+def get_webcam_url(webcam: dict, db: Optional['DatabaseManager'] = None) -> str:
+    """
+    Get the current URL for a webcam, handling dynamic discovery for IPCamLive cameras
+    
+    Args:
+        webcam: Webcam dict with camera_type and discovery_metadata
+        db: Database manager for updating discovered URLs
+        
+    Returns:
+        Current working URL for the webcam
+    """
+    if webcam.get('camera_type') != 'ipcamlive':
+        return webcam['url']
+    
+    # Handle IPCamLive dynamic discovery
+    discovery_metadata = webcam.get('discovery_metadata') or {}
+    alias = discovery_metadata.get('alias')
+    
+    if not alias:
+        logger.error(f"❌ IPCamLive camera {webcam['id']} missing alias in discovery_metadata")
+        return webcam['url']  # Fallback to current URL
+    
+    # Check if cached URL is still valid and not expired
+    last_discovery_time = discovery_metadata.get('last_discovery_time')
+    cache_ttl = discovery_metadata.get('discovery_cache_ttl', 3600)  # 1 hour default
+    last_discovered_url = discovery_metadata.get('last_discovered_url')
+    
+    now = datetime.now(timezone.utc)
+    cache_valid = False
+    
+    if last_discovery_time and last_discovered_url:
+        try:
+            last_time = datetime.fromisoformat(last_discovery_time.replace('Z', '+00:00'))
+            cache_age = (now - last_time).total_seconds()
+            cache_valid = cache_age < cache_ttl
+        except:
+            cache_valid = False
+    
+    # If cache is valid, try the cached URL first
+    if cache_valid and last_discovered_url:
+        try:
+            response = requests.head(last_discovered_url, timeout=5)
+            if response.status_code == 200:
+                logger.info(f"✅ Using cached URL for {webcam['id']}: {last_discovered_url}")
+                return last_discovered_url
+        except:
+            logger.info(f"🔄 Cached URL failed for {webcam['id']}, rediscovering...")
+    
+    # Discover new URL
+    discovered_url = discover_ipcamlive_url(alias)
+    
+    if discovered_url:
+        # Update discovery metadata
+        new_metadata = {
+            **discovery_metadata,
+            'last_discovered_url': discovered_url,
+            'last_discovery_time': now.isoformat().replace('+00:00', 'Z'),
+            'discovery_cache_ttl': cache_ttl
+        }
+        
+        # Update database if available
+        if db:
+            try:
+                db.update_webcam_discovery(webcam['id'], discovered_url, new_metadata)
+            except Exception as e:
+                logger.error(f"❌ Failed to update discovery metadata for {webcam['id']}: {e}")
+        
+        return discovered_url
+    
+    # Fallback to current URL if discovery fails
+    logger.warning(f"⚠️ Discovery failed for {webcam['id']}, using fallback URL: {webcam['url']}")
+    return webcam['url']
+
 def collect_images():
     """Main collection function - only collects images without labeling"""
     logger.info("Starting image collection (no labeling)...")
@@ -106,7 +222,9 @@ def collect_images():
                     'lat': w.latitude,
                     'lon': w.longitude,
                     'description': w.description,
-                    'active': w.active
+                    'active': w.active,
+                    'camera_type': w.camera_type,
+                    'discovery_metadata': w.discovery_metadata
                 }
                 for w in webcams
             ]
@@ -138,7 +256,10 @@ def collect_images():
     
     for webcam in webcam_urls:
         try:
-            response = requests.get(webcam["url"], timeout=10)
+            # Get the current URL (handles dynamic discovery for IPCamLive cameras)
+            current_url = get_webcam_url(webcam, db)
+            
+            response = requests.get(current_url, timeout=10)
             image = Image.open(BytesIO(response.content)).convert('RGB')
             
             timestamp = datetime.now(timezone.utc)

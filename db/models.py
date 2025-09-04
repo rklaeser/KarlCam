@@ -29,6 +29,8 @@ class Webcam:
     video_url: Optional[str] = None
     description: Optional[str] = None
     active: bool = True
+    camera_type: str = "static_url"
+    discovery_metadata: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
@@ -42,7 +44,9 @@ class Webcam:
             'latitude': self.latitude,
             'longitude': self.longitude,
             'description': self.description,
-            'active': self.active
+            'active': self.active,
+            'camera_type': self.camera_type,
+            'discovery_metadata': self.discovery_metadata
         }
 
 
