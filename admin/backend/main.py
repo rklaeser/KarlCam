@@ -197,29 +197,59 @@ class ReviewBackend:
             # Convert to the expected format
             images = []
             for img in paginated_images:
-                labels = img.get('labels', [])
-                if labels:
-                    label = labels[0]  # Use first label for now
-                    images.append(ImageForReview(
-                        id=str(img['id']),
-                        filename=img['image_filename'],
-                        timestamp=img['timestamp'].isoformat() if img['timestamp'] else None,
-                        webcam_info=WebcamInfo(
-                            id=img['webcam_id'] or 'unknown',
-                            name=img.get('webcam_name') or f"Camera {img['webcam_id']}" or 'Unknown Camera',
-                            description=''  # Not included in aggregated query
-                        ),
-                        gemini_label=GeminiLabel(
-                            fog_score=label.get('fog_score', 0),
-                            fog_level=label.get('fog_level', 'Unknown'), 
-                            confidence=label.get('confidence', 0),
-                            reasoning='',  # Not included in aggregated query
-                            visibility_estimate='',  # Not included in aggregated query
-                            weather_conditions=[]  # Not included in aggregated query
-                        ),
-                        image_url=f"/api/images/cloud/{img['image_filename']}",
-                            status="pending"
-                        ))
+                labels = img.get('labels', []) or []
+                # Filter out null labels and handle multiple labelers
+                valid_labels = [label for label in labels if label is not None]
+                
+                if valid_labels:
+                    # Image has labels - create an entry for each labeler or use primary label
+                    # For now, prefer Gemini labels, then fall back to others
+                    primary_label = None
+                    for label in valid_labels:
+                        if label.get('labeler') and 'gemini' in label.get('labeler', '').lower():
+                            primary_label = label
+                            break
+                    
+                    # If no Gemini label, use first available label
+                    if not primary_label:
+                        primary_label = valid_labels[0]
+                    
+                    gemini_label = GeminiLabel(
+                        fog_score=primary_label.get('fog_score', 0),
+                        fog_level=primary_label.get('fog_level', 'Unknown'), 
+                        confidence=primary_label.get('confidence', 0),
+                        reasoning='',  # Not included in aggregated query
+                        visibility_estimate='',  # Not included in aggregated query
+                        weather_conditions=[]  # Not included in aggregated query
+                    )
+                    status = "pending"
+                else:
+                    # Image has no labels - show placeholder values
+                    gemini_label = GeminiLabel(
+                        fog_score=0,
+                        fog_level='Not Labeled', 
+                        confidence=0,
+                        reasoning='',
+                        visibility_estimate='',
+                        weather_conditions=[]
+                    )
+                    status = "unlabeled"
+                
+                images.append(ImageForReview(
+                    id=str(img['id']),
+                    filename=img['image_filename'],
+                    timestamp=img['timestamp'].isoformat() if img['timestamp'] else None,
+                    webcam_info=WebcamInfo(
+                        id=img['webcam_id'] or 'unknown',
+                        name=img.get('webcam_name') or f"Camera {img['webcam_id']}" or 'Unknown Camera',
+                        description=''  # Not included in aggregated query
+                    ),
+                    gemini_label=gemini_label,
+                    image_url=f"/api/images/cloud/{img['image_filename']}",
+                    status=status,
+                    # Store all labels for potential future use
+                    # all_labels=valid_labels  # Could add this if the model supports it
+                ))
             
             return images
                     
@@ -562,10 +592,14 @@ async def serve_cloud_image(filename: str):
     
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(f"images/{filename}")
+        # Try raw_images path first (from new collector), then fallback to images path
+        blob = bucket.blob(f"raw_images/{filename}")
         
         if not blob.exists():
-            raise HTTPException(status_code=404, detail="Image not found")
+            # Fallback to old path
+            blob = bucket.blob(f"images/{filename}")
+            if not blob.exists():
+                raise HTTPException(status_code=404, detail="Image not found")
         
         # Download the image data
         image_data = blob.download_as_bytes()

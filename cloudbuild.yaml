@@ -26,6 +26,18 @@ steps:
       - '.'
 
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-labeler'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:latest'
+      - '-f'
+      - 'label/infra/Dockerfile.prod'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
     id: 'build-api'
     args:
       - 'build'
@@ -102,6 +114,11 @@ steps:
     id: 'push-collector'
     args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-collector']
     waitFor: ['build-collector']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-labeler'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-labeler']
+    waitFor: ['build-labeler']
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-api'
@@ -201,9 +218,41 @@ steps:
       - '--quiet'
     waitFor: ['push-collector']
 
+  # Update or create Cloud Run Job for labeler
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'update-labeler-job'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Try to update existing job first, create if it doesn't exist
+        if gcloud run jobs update karlcam-labeler-v2 \
+          --image=gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA} \
+          --region=${_REGION} \
+          --service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com \
+          --quiet 2>/dev/null; then
+          echo "Updated existing labeler job"
+        else
+          echo "Creating new labeler job"
+          gcloud run jobs create karlcam-labeler-v2 \
+            --image=gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA} \
+            --region=${_REGION} \
+            --memory=2Gi \
+            --cpu=1 \
+            --max-retries=1 \
+            --parallelism=1 \
+            --set-env-vars="USE_CLOUD_STORAGE=true,OUTPUT_BUCKET=${_BUCKET_NAME}" \
+            --set-secrets="DATABASE_URL=database-url-v2:latest,GEMINI_API_KEY=gemini-api-key-v2:latest" \
+            --service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com \
+            --quiet
+        fi
+    waitFor: ['push-labeler']
+
 images:
   - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:latest'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:latest'
   - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
