@@ -8,6 +8,8 @@ interface Camera {
   description: string;
   url: string;
   video_url?: string;
+  latitude: number;
+  longitude: number;
   created_at: string;
 }
 
@@ -26,7 +28,9 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
     name: '',
     description: '',
     url: '',
-    video_url: ''
+    video_url: '',
+    latitude: 37.7749,
+    longitude: -122.4194
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -56,7 +60,9 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
       name: camera.name,
       description: camera.description,
       url: camera.url,
-      video_url: camera.video_url || ''
+      video_url: camera.video_url || '',
+      latitude: camera.latitude,
+      longitude: camera.longitude
     });
     setIsEditing(false);
     setIsCreating(false);
@@ -70,7 +76,9 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
       name: '',
       description: '',
       url: '',
-      video_url: ''
+      video_url: '',
+      latitude: 37.7749,
+      longitude: -122.4194
     });
   };
 
@@ -87,7 +95,9 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
         name: selectedCamera.name,
         description: selectedCamera.description,
         url: selectedCamera.url,
-        video_url: selectedCamera.video_url || ''
+        video_url: selectedCamera.video_url || '',
+        latitude: selectedCamera.latitude,
+        longitude: selectedCamera.longitude
       });
     }
   };
@@ -209,6 +219,30 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
                     onChange={(e) => setFormData({...formData, video_url: e.target.value})}
                     disabled={!isEditing && !isCreating}
                     placeholder="https://example.com/live-stream"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Latitude</label>
+                  <input
+                    type="number"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({...formData, latitude: parseFloat(e.target.value)})}
+                    disabled={!isEditing && !isCreating}
+                    placeholder="37.7749"
+                    step="0.0001"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Longitude</label>
+                  <input
+                    type="number"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({...formData, longitude: parseFloat(e.target.value)})}
+                    disabled={!isEditing && !isCreating}
+                    placeholder="-122.4194"
+                    step="0.0001"
                   />
                 </div>
 

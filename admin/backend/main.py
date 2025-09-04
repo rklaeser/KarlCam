@@ -461,7 +461,7 @@ async def get_cameras():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, description, url, video_url, created_at
+                    SELECT id, name, description, url, video_url, latitude, longitude, created_at
                     FROM webcams
                     ORDER BY name
                 """)
@@ -473,6 +473,8 @@ async def get_cameras():
                     "description": cam['description'],
                     "url": cam['url'],
                     "video_url": cam.get('video_url', ''),
+                    "latitude": float(cam['latitude']) if cam['latitude'] else 37.7749,
+                    "longitude": float(cam['longitude']) if cam['longitude'] else -122.4194,
                     "created_at": cam['created_at'].isoformat() if cam['created_at'] else None
                 }
                 for cam in cameras
@@ -488,13 +490,25 @@ async def get_cameras():
 async def create_camera(camera_data: dict):
     """Create a new camera"""
     try:
+        # Generate a unique ID for the camera
+        import uuid
+        camera_id = str(uuid.uuid4())
+        
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO webcams (name, description, url, video_url)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id, name, description, url, video_url, created_at
-                """, (camera_data['name'], camera_data['description'], camera_data['url'], camera_data.get('video_url', '')))
+                    INSERT INTO webcams (id, name, description, url, video_url, latitude, longitude)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, name, description, url, video_url, latitude, longitude, created_at
+                """, (
+                    camera_id,
+                    camera_data['name'], 
+                    camera_data['description'], 
+                    camera_data['url'], 
+                    camera_data.get('video_url', ''),
+                    camera_data.get('latitude', 37.7749),
+                    camera_data.get('longitude', -122.4194)
+                ))
                 camera = cur.fetchone()
                 conn.commit()
                 return {
@@ -503,11 +517,13 @@ async def create_camera(camera_data: dict):
                     "description": camera['description'],
                     "url": camera['url'],
                     "video_url": camera.get('video_url', ''),
+                    "latitude": float(camera['latitude']) if camera['latitude'] else 37.7749,
+                    "longitude": float(camera['longitude']) if camera['longitude'] else -122.4194,
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except Exception as e:
         logger.error(f"Error creating camera: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create camera")
+        raise HTTPException(status_code=500, detail=f"Failed to create camera: {str(e)}")
 
 @app.put("/api/cameras/{camera_id}")
 async def update_camera(camera_id: str, camera_data: dict):
@@ -517,10 +533,18 @@ async def update_camera(camera_id: str, camera_data: dict):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     UPDATE webcams 
-                    SET name = %s, description = %s, url = %s, video_url = %s
+                    SET name = %s, description = %s, url = %s, video_url = %s, latitude = %s, longitude = %s
                     WHERE id = %s
-                    RETURNING id, name, description, url, video_url, created_at
-                """, (camera_data['name'], camera_data['description'], camera_data['url'], camera_data.get('video_url', ''), camera_id))
+                    RETURNING id, name, description, url, video_url, latitude, longitude, created_at
+                """, (
+                    camera_data['name'], 
+                    camera_data['description'], 
+                    camera_data['url'], 
+                    camera_data.get('video_url', ''),
+                    camera_data.get('latitude', 37.7749),
+                    camera_data.get('longitude', -122.4194),
+                    camera_id
+                ))
                 camera = cur.fetchone()
                 if not camera:
                     raise HTTPException(status_code=404, detail="Camera not found")
@@ -531,13 +555,15 @@ async def update_camera(camera_id: str, camera_data: dict):
                     "description": camera['description'],
                     "url": camera['url'],
                     "video_url": camera.get('video_url', ''),
+                    "latitude": float(camera['latitude']) if camera['latitude'] else 37.7749,
+                    "longitude": float(camera['longitude']) if camera['longitude'] else -122.4194,
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating camera: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update camera")
+        raise HTTPException(status_code=500, detail=f"Failed to update camera: {str(e)}")
 
 @app.delete("/api/cameras/{camera_id}")
 async def delete_camera(camera_id: str):

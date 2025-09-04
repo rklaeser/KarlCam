@@ -63,16 +63,80 @@ const MeasuringFog: React.FC = () => {
 
       <main className="flex-1 container mx-auto px-6 py-8 mt-8">
         <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-6 md:p-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6">Measuring Fog with Cameras</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Measuring Fog with Cameras</h1>
           
-          <p className="text-gray-600 text-lg mb-8 leading-relaxed">
-            Our AI analyzes webcam images to determine fog intensity on a scale of 0-100. 
-            The system evaluates visual features including visibility, contrast, and atmospheric conditions
-            to provide real-time fog measurements across San Francisco.
-          </p>
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+            <span>By Reed Klaeser</span>
+            <span>•</span>
+            <span>August 28, 2025</span>
+            <span>•</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+              In Progress
+            </span>
+          </div>
+          
+          <div className="prose prose-lg max-w-none text-gray-600 mb-8">
+            <p className="leading-relaxed mb-4">
+              Even on the foggiest day of this historically cold San Francisco summer the familiar sound of Waymos can be heard. 
+              How do they manage to avoid running over pedestrians obscured by the fog? <a href="https://waymo.com/blog/2021/11/a-fog-blog" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">With radar sensors that can see through it</a>. 
+              Cameras can't do that and it's no small controversy that Tesla self driving has rejected lidar in favor of cameras.
+            </p>
+            
+            <div className="my-6 flex justify-center">
+              <img 
+                src="/waymo.webp" 
+                alt="Waymo vehicle in San Francisco fog" 
+                className="rounded-lg shadow-lg max-w-full h-auto"
+                style={{ maxHeight: '400px' }}
+              />
+            </div>
+            
+            <p className="leading-relaxed mb-4">
+            </p>
+            
+            <p className="leading-relaxed mb-4">
+            But cameras are cheaper and the webcams I needed for karlcam (<a href="/why-karlcam" className="text-blue-600 hover:text-blue-800 underline">See why karlcam for more details</a>) are accessible for free on the internet.
+            Similar to Tesla, cameras are more convenient, in KarlCam's case because there are freely accessible public webcams on the internet. 
+              And also similar to Tesla, the state of the art uses lasers. Unlike Tesla's self driving problem, webcam images tend to be in 
+              fixed positions and there is no serious time pressure.
+            </p>
+            
+            <div className="bg-gray-50 border-l-4 border-gray-500 p-4 mb-6">
+              <p className="text-gray-800 font-semibold mb-1">Problem Statement:</p>
+              <p className="text-gray-700">Determine the visibility level in a set of fixed images over time.</p>
+            </div>
+            
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Approaches</h3>
+            <p className="text-gray-600 mb-4">Ordered by increasing complexity</p>
+            
+            <ol className="space-y-3 text-gray-700">
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">1</span>
+                <div>
+                  <strong>Ask LLM how foggy it is in a picture</strong>
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Current</span>
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">2</span>
+                <div>
+                  <strong>Same but also give LLM a clear picture for reference</strong>
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Next</span>
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full text-sm flex items-center justify-center font-semibold">3</span>
+                <div>
+                  <strong>Collect images, score them with LLM, review and correct them</strong>
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">In Progress</span>
+                  <p className="text-sm text-gray-600 mt-1">See <a href="https://admin.karl.cam" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">admin.karl.cam</a></p>
+                </div>
+              </li>
+            </ol>
+          </div>
 
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">Fog Intensity Levels</h2>
-          
+          <p className="leading-relaxed mb-4 text-gray-600">The farther in meters the visibility is, the lower the intensity level. I am considering switching to meters of visibility directly.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {fogLevels.map((level) => (
               <div key={level.level} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
@@ -103,42 +167,16 @@ const MeasuringFog: React.FC = () => {
             ))}
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">How It Works</h3>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                <span>AI models analyze webcam images every few minutes</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                <span>Visual features like contrast, edges, and color saturation are evaluated</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                <span>Each camera location receives a fog score from 0 (clear) to 100 (very heavy fog)</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                <span>Scores are displayed on the map with color-coded circles</span>
-              </li>
-            </ul>
-          </div>
+
           
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
-            <p className="text-sm text-gray-700 leading-relaxed">
-              <strong>Note:</strong> Fog scores are estimates based on visual analysis. 
-              Weather conditions, camera quality, and time of day can affect accuracy. 
-              Always use multiple sources when making weather-dependent decisions.
-            </p>
-          </div>
+
         </div>
       </main>
 
       <footer className="bg-white/10 backdrop-blur-md border-t border-white/20 text-white py-6">
         <div className="container mx-auto px-6 text-center">
           <p className="text-blue-100">
-            🌫️ KarlCam - Real-time fog tracking for San Francisco
+            KarlCam - Real-time fog tracking for San Francisco
           </p>
         </div>
       </footer>

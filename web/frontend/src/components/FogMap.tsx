@@ -42,22 +42,30 @@ interface FogMapProps {
 const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
   // Track cameras that have failed to load images
   const [inactiveCameras, setInactiveCameras] = useState<Set<string>>(new Set());
+  // Track which camera images have loaded
+  const [loadedCameras, setLoadedCameras] = useState<Set<string>>(new Set());
   
   // List of cameras to mark as inactive (you can add more IDs here)
   const knownInactiveCameras = new Set(['ipcamlive']);
 
-  // Set up callback for marking cameras as inactive
+  // Set up callbacks for marking cameras as inactive or loaded
   useEffect(() => {
     (window as any).markCameraInactive = (cameraId: string) => {
       setInactiveCameras(prev => new Set(Array.from(prev).concat(cameraId)));
     };
     
+    (window as any).markCameraLoaded = (cameraId: string) => {
+      setLoadedCameras(prev => new Set(Array.from(prev).concat(cameraId)));
+    };
+    
     return () => {
       delete (window as any).markCameraInactive;
+      delete (window as any).markCameraLoaded;
     };
   }, []);
 
-  const getFogColor = (fogScore: number): string => {
+  const getFogColor = (fogScore: number, hasData: boolean = true): string => {
+    if (!hasData) return '#6c757d'; // Grey - No data
     if (fogScore < 20) return '#28a745'; // Green - Clear
     if (fogScore < 40) return '#ffc107'; // Yellow - Light fog
     if (fogScore < 60) return '#fd7e14'; // Orange - Moderate fog
@@ -65,9 +73,45 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
     return '#6f42c1'; // Purple - Very heavy fog
   };
 
-  const createCameraImageIcon = (imageUrl: string, fogScore: number, webcamId: string): L.DivIcon => {
-    const borderColor = getFogColor(fogScore);
+  const createCameraImageIcon = (imageUrl: string, fogScore: number, webcamId: string, showPlaceholder: boolean = false, hasData: boolean = true): L.DivIcon => {
+    const borderColor = getFogColor(fogScore, hasData);
     const size = 80; // Fixed size for camera images
+    
+    // If showing placeholder initially
+    if (showPlaceholder) {
+      const html = `
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          border: 3px solid ${borderColor};
+          border-radius: 50%;
+          background: #f0f0f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #999;
+          font-size: 16px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          animation: pulse 1.5s infinite;
+        ">
+          <style>
+            @keyframes pulse {
+              0%, 100% { opacity: 0.6; }
+              50% { opacity: 1; }
+            }
+          </style>
+          📷
+        </div>
+      `;
+      
+      return L.divIcon({
+        html: html,
+        className: 'camera-placeholder-marker',
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2],
+        popupAnchor: [0, -(size/2) - 5]
+      });
+    }
     
     const html = `
       <div style="
@@ -86,6 +130,10 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
             width: 100%;
             height: 100%;
             object-fit: cover;
+          "
+          onload="
+            // Mark camera as loaded
+            window.markCameraLoaded && window.markCameraLoaded('${webcamId}');
           "
           onerror="
             console.log('Map marker image load error for webcam: ${webcamId}');
@@ -126,8 +174,8 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
     });
   };
 
-  const createFallbackIcon = (fogScore: number): L.DivIcon => {
-    const borderColor = getFogColor(fogScore);
+  const createFallbackIcon = (fogScore: number, hasData: boolean = true): L.DivIcon => {
+    const borderColor = getFogColor(fogScore, hasData);
     const size = 80;
     
     const html = `
@@ -187,14 +235,21 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
             (Math.abs(cam.lat - webcam.lat) < 0.001 && Math.abs(cam.lon - webcam.lon) < 0.001)
           );
           
+          const hasData = !!cameraData;
           const fogScore = cameraData?.fog_score ?? 0;
           const fogLevel = cameraData?.fog_level ?? 'No data';
           const confidence = cameraData?.confidence ?? 0;
           
-          // Create the appropriate icon based on image availability
+          // Create the appropriate icon based on image availability and loading state
           const icon = webcam.url 
-            ? createCameraImageIcon(webcam.url, fogScore, webcam.id)
-            : createFallbackIcon(fogScore);
+            ? createCameraImageIcon(
+                webcam.url, 
+                fogScore, 
+                webcam.id,
+                !loadedCameras.has(webcam.id) && cameras.length === 0, // Show placeholder if camera not loaded and no fog data yet
+                hasData
+              )
+            : createFallbackIcon(fogScore, hasData);
           
           return (
             <Marker 
@@ -316,6 +371,10 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
           </Link>
         </h4>
         <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: '#6c757d' }}></div>
+            <span className="text-xs">No Data</span>
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: '#28a745' }}></div>
             <span className="text-xs">Clear (0-20)</span>

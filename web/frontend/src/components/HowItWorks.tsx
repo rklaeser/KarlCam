@@ -1,22 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 const HowItWorks: React.FC = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   return (
-    <div id="learn-more" className="overflow-hidden">
-      <div 
-        className="flex justify-between items-center p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white cursor-pointer select-none hover:from-blue-700 hover:to-purple-700 transition-all duration-300"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <h2 className="text-2xl font-semibold m-0">How This Works</h2>
-        <button className="w-9 h-9 bg-white/20 border-2 border-white text-white rounded-full text-2xl flex items-center justify-center hover:bg-white/30 hover:scale-110 transition-all duration-300">
-          {isExpanded ? '−' : '+'}
-        </button>
-      </div>
-
-      {isExpanded && (
-        <div className="p-6 space-y-8">
+    <div className="p-6 md:p-10">
+      <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6">How I Built This</h1>
+      
+      <div className="space-y-8">
           <div>
             <h3 className="text-xl font-semibold text-gray-800 mb-4">Architecture Overview</h3>
             <p className="text-gray-700 leading-relaxed">
@@ -126,9 +115,8 @@ const HowItWorks: React.FC = () => {
                 </a>
               </li>
             </ul>
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

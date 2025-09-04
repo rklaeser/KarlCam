@@ -46,10 +46,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <div>
             {/* Title */}
             <div className="mb-8 mt-4">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                karl cam
-              </h1>
-              <p className="text-gray-600 mt-2">Live San Francisco fog</p>
+              <Link to="/">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent hover:from-blue-700 hover:to-purple-700 transition-all duration-300 cursor-pointer">
+                  karl cam
+                </h1>
+                <p className="text-gray-600 mt-2 hover:text-gray-800 transition-colors cursor-pointer">Live San Francisco fog</p>
+              </Link>
             </div>
 
             {/* View Toggle */}
@@ -85,6 +87,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 className={getMenuItemClass('/measuring-fog')}
               >
                 {getMenuItemText('/measuring-fog', 'Measuring Fog with Cameras')}
+              </Link>
+              <Link
+                to="/why-karlcam"
+                className={getMenuItemClass('/why-karlcam')}
+              >
+                {getMenuItemText('/why-karlcam', 'Why KarlCam?')}
               </Link>
               <a
                 href="https://x.com/KarlTheFog"

@@ -28,43 +28,58 @@ interface Webcam {
 const Home: React.FC = () => {
   const [webcams, setWebcams] = useState<Webcam[]>([]);
   const [cameras, setCameras] = useState<CameraConditions[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [camerasLoading, setCamerasLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const API_BASE = process.env.NODE_ENV === 'production' ? 'https://api.karl.cam' : 'http://localhost:8002';
 
   useEffect(() => {
-    loadData();
+    // Load map immediately, then load camera data
+    loadMapAndCameras();
     // Refresh data every 5 minutes
-    const interval = setInterval(loadData, 5 * 60 * 1000);
+    const interval = setInterval(loadCamerasOnly, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
+  const loadMapAndCameras = async () => {
     try {
       setError(null);
       
-      // Load webcam locations and current conditions for each camera
-      const [webcamsRes, camerasRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/public/webcams`),
-        axios.get(`${API_BASE}/api/public/cameras`)
-      ]);
-      
+      // First, load webcam locations to show the map quickly
+      const webcamsRes = await axios.get(`${API_BASE}/api/public/webcams`);
       setWebcams(webcamsRes.data.webcams || []);
-      setCameras(camerasRes.data.cameras || []);
-      setLoading(false);
-
+      setMapLoading(false);
+      
+      // Then load camera conditions asynchronously
+      loadCamerasOnly();
+      
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load fog data. The service may be starting up.');
-      setLoading(false);
+      console.error('Error loading webcams:', err);
+      setError('Failed to load webcam locations. The service may be starting up.');
+      setMapLoading(false);
+      setCamerasLoading(false);
+    }
+  };
+
+  const loadCamerasOnly = async () => {
+    try {
+      setCamerasLoading(true);
+      const camerasRes = await axios.get(`${API_BASE}/api/public/cameras`);
+      setCameras(camerasRes.data.cameras || []);
+      setCamerasLoading(false);
+    } catch (err) {
+      console.error('Error loading camera conditions:', err);
+      // Don't show error for camera conditions - just log it
+      setCamerasLoading(false);
     }
   };
 
   const refreshData = () => {
-    setLoading(true);
-    loadData();
+    setMapLoading(true);
+    setCamerasLoading(true);
+    loadMapAndCameras();
   };
 
 
@@ -94,14 +109,22 @@ const Home: React.FC = () => {
           cameras={cameras}
         />
         
-        {/* Loading overlay */}
-        {loading && webcams.length === 0 && (
+        {/* Loading overlay - only show before map loads */}
+        {mapLoading && (
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center" style={{ zIndex: 1000 }}>
             <div className="text-center text-white">
               <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-6"></div>
-              <h2 className="text-2xl font-bold mb-2">Loading San Francisco Fog Data...</h2>
-              <p className="text-blue-100">Loading webcam locations...</p>
+              <h2 className="text-2xl font-bold mb-2">Loading Map...</h2>
+              <p className="text-blue-100">Initializing San Francisco fog tracker</p>
             </div>
+          </div>
+        )}
+        
+        {/* Camera loading indicator - small overlay when map is visible but cameras are loading */}
+        {!mapLoading && camerasLoading && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 flex items-center gap-2" style={{ zIndex: 1000 }}>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span className="text-sm text-gray-700">Loading camera conditions...</span>
           </div>
         )}
         
