@@ -47,6 +47,8 @@ app.add_middleware(
 DATABASE_URL = os.getenv("DATABASE_URL")
 BUCKET_NAME = os.getenv("BUCKET_NAME", "karlcam-fog-data")
 
+logger.info(f"DATABASE_URL loaded: {DATABASE_URL}")
+
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")
 
@@ -254,7 +256,7 @@ async def serve_image(filename: str):
     """Serve image from Cloud Storage"""
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(f"images/{filename}")
+        blob = bucket.blob(f"raw_images/{filename}")
         
         if not blob.exists():
             raise HTTPException(status_code=404, detail="Image not found")

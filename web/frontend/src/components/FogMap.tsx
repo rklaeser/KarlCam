@@ -37,13 +37,16 @@ interface CameraConditions {
 interface FogMapProps {
   webcams: Webcam[];
   cameras?: CameraConditions[];
+  apiBase: string;
 }
 
-const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
+const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
   // Track cameras that have failed to load images
   const [inactiveCameras, setInactiveCameras] = useState<Set<string>>(new Set());
   // Track which camera images have loaded
   const [loadedCameras, setLoadedCameras] = useState<Set<string>>(new Set());
+  // Track cameras that have already attempted fallback to prevent loops
+  const [fallbackAttempted, setFallbackAttempted] = useState<Set<string>>(new Set());
   
   // List of cameras to mark as inactive (you can add more IDs here)
   const knownInactiveCameras = new Set(['ipcamlive']);
@@ -139,8 +142,21 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
             console.log('Map marker image load error for webcam: ${webcamId}');
             const imgElement = this;
             
+            // Check if we've already attempted fallback for this camera to prevent loops
+            if (window.fallbackAttempted && window.fallbackAttempted.has('${webcamId}')) {
+              console.log('Fallback already attempted for ${webcamId}, marking as inactive');
+              window.markCameraInactive && window.markCameraInactive('${webcamId}');
+              imgElement.style.display='none'; 
+              imgElement.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:24px;\\'>📷</div>';
+              return;
+            }
+            
+            // Mark that we're attempting fallback for this camera
+            if (!window.fallbackAttempted) window.fallbackAttempted = new Set();
+            window.fallbackAttempted.add('${webcamId}');
+            
             // Try to fallback to latest collected image
-            fetch('http://localhost:8002/api/public/cameras/${webcamId}/latest-image')
+            fetch('${apiBase}/api/public/cameras/${webcamId}/latest-image')
               .then(response => {
                 if (!response.ok) {
                   throw new Error('No collected image available');
@@ -149,7 +165,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [] }) => {
               })
               .then(data => {
                 console.log('Map marker fallback to collected image:', data);
-                const fullImageUrl = 'http://localhost:8002' + data.image_url;
+                const fullImageUrl = '${apiBase}' + data.image_url;
                 imgElement.src = fullImageUrl;
                 imgElement.style.opacity = '0.8';
               })

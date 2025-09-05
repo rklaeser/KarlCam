@@ -3,6 +3,8 @@
 # Default target
 help:
 	@echo "Available targets:"
+	@echo ""
+	@echo "Development Commands:"
 	@echo "  start-api            - Setup and start the API server (http://localhost:8002)"
 	@echo "  start-frontend       - Setup and start the main frontend development server (http://localhost:3000)"
 	@echo "  start-admin-backend  - Setup and start the admin backend server (http://localhost:8001)"
@@ -10,6 +12,10 @@ help:
 	@echo "  start-collect        - Setup and run the dual scoring collector locally"
 	@echo "  start-sql           - Start Cloud SQL Proxy for local development"
 	@echo "  clean               - Remove virtual environments and node_modules"
+
+# ========================================
+# Development Commands
+# ========================================
 
 # API: setup venv + install deps + start
 start-api:
@@ -28,7 +34,8 @@ start-api:
 	cd web/api && python3 -m venv venv || true
 	cd web/api && source venv/bin/activate && pip install -r requirements.txt
 	@echo "Starting API server on http://localhost:8002"
-	cd web/api && source venv/bin/activate && python main.py
+	@echo "Press Ctrl+C to stop the server"
+	cd web/api && source venv/bin/activate && exec python main.py
 
 # Frontend: npm install + start
 start-frontend:
@@ -62,7 +69,7 @@ start-collect:
 	@mkdir -p test_data/{raw/{images,labels},review/{pending,metadata}}
 	@echo "🚀 Running collector..."
 	@echo "📊 Data will be saved to ./test_data/"
-	PYTHONPATH=/Users/reed/Code/Homelab/KarlCam collect/venv/bin/python -m collect.collect_and_label
+	cd collect && source venv/bin/activate && python collect_images.py
 
 # Cloud SQL Proxy: start proxy for local development
 start-sql:

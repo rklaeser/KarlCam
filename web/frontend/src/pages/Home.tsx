@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import FogMap from '../components/FogMap';
 import Sidebar from '../components/Sidebar';
+import api, { API_BASE_URL } from '../services/api';
 
 interface CameraConditions {
   id: string;
@@ -33,7 +33,6 @@ const Home: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const API_BASE = process.env.NODE_ENV === 'production' ? 'https://api.karl.cam' : 'http://localhost:8002';
 
   useEffect(() => {
     // Load map immediately, then load camera data
@@ -48,7 +47,7 @@ const Home: React.FC = () => {
       setError(null);
       
       // First, load webcam locations to show the map quickly
-      const webcamsRes = await axios.get(`${API_BASE}/api/public/webcams`);
+      const webcamsRes = await api.get('/api/public/webcams');
       setWebcams(webcamsRes.data.webcams || []);
       setMapLoading(false);
       
@@ -66,7 +65,7 @@ const Home: React.FC = () => {
   const loadCamerasOnly = async () => {
     try {
       setCamerasLoading(true);
-      const camerasRes = await axios.get(`${API_BASE}/api/public/cameras`);
+      const camerasRes = await api.get('/api/public/cameras');
       setCameras(camerasRes.data.cameras || []);
       setCamerasLoading(false);
     } catch (err) {
@@ -107,6 +106,7 @@ const Home: React.FC = () => {
         <FogMap 
           webcams={webcams}
           cameras={cameras}
+          apiBase={API_BASE_URL}
         />
         
         {/* Loading overlay - only show before map loads */}

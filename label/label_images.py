@@ -57,25 +57,6 @@ def load_metadata_from_cloud_storage(filename: str) -> Dict:
         logger.error(f"Failed to load metadata from Cloud Storage: {e}")
         raise
 
-def save_labels_to_cloud_storage(labels: Dict, filename: str) -> bool:
-    """Save labels to Cloud Storage"""
-    try:
-        from google.cloud import storage
-        client = storage.Client()
-        bucket = client.bucket(BUCKET_NAME)
-        blob = bucket.blob(f"labels/{filename}")
-        
-        blob.upload_from_string(
-            json.dumps(labels, indent=2),
-            content_type='application/json'
-        )
-        
-        logger.info(f"✅ Saved labels to gs://{BUCKET_NAME}/labels/{filename}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to save labels to Cloud Storage: {e}")
-        return False
-
 def get_unlabeled_images(db: Optional[DatabaseManager] = None, labeler_name: str = None) -> List[Dict]:
     """Get list of images that need labeling"""
     if db:
@@ -101,11 +82,28 @@ def get_unlabeled_images(db: Optional[DatabaseManager] = None, labeler_name: str
                 
                 # List all raw images
                 raw_blobs = list(bucket.list_blobs(prefix="raw_images/"))
-                # List all labeled images
-                labeled_blobs = list(bucket.list_blobs(prefix="labels/"))
-                
                 raw_files = {b.name.replace("raw_images/", "") for b in raw_blobs}
-                labeled_files = {b.name.replace("labels/", "").replace(".json", "") for b in labeled_blobs}
+                
+                # Get labeled images from database instead of Cloud Storage
+                labeled_files = set()
+                if db and labeler_name:
+                    try:
+                        # Use database manager to check existing labels  
+                        from db.connection import execute_query
+                        from psycopg2.extras import RealDictCursor
+                        
+                        labeled_results = execute_query(
+                            """SELECT DISTINCT ic.image_filename 
+                               FROM image_collections ic 
+                               JOIN image_labels il ON ic.id = il.image_id 
+                               WHERE il.labeler_name = %s""", 
+                            (labeler_name,),
+                            cursor_factory=RealDictCursor
+                        )
+                        labeled_files = {row['image_filename'] for row in labeled_results}
+                    except Exception as e:
+                        logger.error(f"Failed to get labeled images from database: {e}")
+                        raise RuntimeError(f"Database query failed, cannot determine which images are already labeled: {e}")
                 
                 # Find unlabeled images
                 unlabeled = raw_files - labeled_files
@@ -211,8 +209,7 @@ def label_images(labeler_types: List[str] = None):
                 with open(labels_path, 'w') as f:
                     json.dump(label_data, f, indent=2, default=str)
                 logger.info(f"💾 Saved labels locally: {labels_path}")
-            else:
-                save_labels_to_cloud_storage(label_data, f"{image_filename}.json")
+            # Cloud storage mode - labels now saved only to database
                 
                 # Save to database
                 if db:
