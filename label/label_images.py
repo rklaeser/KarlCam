@@ -25,9 +25,7 @@ from db.models import ImageLabel
 
 from labelers import create_labeler
 
-USE_CLOUD_STORAGE = os.getenv("USE_CLOUD_STORAGE", "true").lower() == "true"
 BUCKET_NAME = os.getenv("OUTPUT_BUCKET", "karlcam-fog-data")
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 def load_image_from_cloud_storage(filename: str) -> Image.Image:
     """Load image from Cloud Storage"""
@@ -57,76 +55,20 @@ def load_metadata_from_cloud_storage(filename: str) -> Dict:
         logger.error(f"Failed to load metadata from Cloud Storage: {e}")
         raise
 
-def get_unlabeled_images(db: Optional[DatabaseManager] = None, labeler_name: str = None) -> List[Dict]:
-    """Get list of images that need labeling"""
-    if db:
-        # Get from database - returns ImageCollection objects
-        images = db.get_unlabeled_images(labeler_name=labeler_name, limit=100)
-        return [
-            {
-                "id": img.id,
-                "image_filename": img.image_filename,
-                "webcam_id": img.webcam_id,
-                "timestamp": img.timestamp,
-                "cloud_storage_path": img.cloud_storage_path
-            }
-            for img in images
-        ]
-    else:
-        # Get from local filesystem or cloud storage
-        if USE_CLOUD_STORAGE:
-            try:
-                from google.cloud import storage
-                client = storage.Client()
-                bucket = client.bucket(BUCKET_NAME)
-                
-                # List all raw images
-                raw_blobs = list(bucket.list_blobs(prefix="raw_images/"))
-                raw_files = {b.name.replace("raw_images/", "") for b in raw_blobs}
-                
-                # Get labeled images from database instead of Cloud Storage
-                labeled_files = set()
-                if db and labeler_name:
-                    try:
-                        # Use database manager to check existing labels  
-                        from db.connection import execute_query
-                        from psycopg2.extras import RealDictCursor
-                        
-                        labeled_results = execute_query(
-                            """SELECT DISTINCT ic.image_filename 
-                               FROM image_collections ic 
-                               JOIN image_labels il ON ic.id = il.image_id 
-                               WHERE il.labeler_name = %s""", 
-                            (labeler_name,),
-                            cursor_factory=RealDictCursor
-                        )
-                        labeled_files = {row['image_filename'] for row in labeled_results}
-                    except Exception as e:
-                        logger.error(f"Failed to get labeled images from database: {e}")
-                        raise RuntimeError(f"Database query failed, cannot determine which images are already labeled: {e}")
-                
-                # Find unlabeled images
-                unlabeled = raw_files - labeled_files
-                
-                return [{"image_filename": f} for f in unlabeled if f.endswith('.jpg')]
-            except Exception as e:
-                logger.error(f"Failed to get unlabeled images from Cloud Storage: {e}")
-                return []
-        else:
-            # Local filesystem
-            output_dir = Path(os.getenv('OUTPUT_DIR', './output'))
-            raw_dir = output_dir / "raw_images"
-            labels_dir = output_dir / "labels"
-            
-            if not raw_dir.exists():
-                return []
-            
-            raw_files = {f.name for f in raw_dir.glob("*.jpg")}
-            labeled_files = {f.stem for f in labels_dir.glob("*.json")} if labels_dir.exists() else set()
-            
-            unlabeled = raw_files - {f + ".jpg" for f in labeled_files}
-            
-            return [{"image_filename": f} for f in unlabeled]
+def get_unlabeled_images(db: DatabaseManager, labeler_name: str = None) -> List[Dict]:
+    """Get list of images that need labeling from database"""
+    # Get from database - returns ImageCollection objects
+    images = db.get_unlabeled_images(labeler_name=labeler_name, limit=100)
+    return [
+        {
+            "id": img.id,
+            "image_filename": img.image_filename,
+            "webcam_id": img.webcam_id,
+            "timestamp": img.timestamp,
+            "cloud_storage_path": img.cloud_storage_path
+        }
+        for img in images
+    ]
 
 def label_images(labeler_types: List[str] = None):
     """Main labeling function"""
@@ -135,10 +77,8 @@ def label_images(labeler_types: List[str] = None):
     
     logger.info(f"Starting image labeling with techniques: {labeler_types}")
     
-    local_testing = os.getenv("LOCAL_TESTING", "false").lower() == "true"
-    
-    # Initialize database if not in local testing
-    db = None if local_testing else DatabaseManager()
+    # Initialize database
+    db = DatabaseManager()
     
     # Get unlabeled images
     unlabeled_images = get_unlabeled_images(db)
@@ -170,18 +110,9 @@ def label_images(labeler_types: List[str] = None):
         try:
             logger.info(f"Processing {image_filename}")
             
-            # Load image and metadata
-            if local_testing:
-                output_dir = Path(os.getenv('OUTPUT_DIR', './output'))
-                image_path = output_dir / "raw_images" / image_filename
-                image = Image.open(image_path).convert('RGB')
-                
-                metadata_path = output_dir / "raw_metadata" / f"{image_filename}.json"
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
-            else:
-                image = load_image_from_cloud_storage(image_filename)
-                metadata = load_metadata_from_cloud_storage(f"{image_filename}.json")
+            # Load image and metadata from cloud storage
+            image = load_image_from_cloud_storage(image_filename)
+            metadata = load_metadata_from_cloud_storage(f"{image_filename}.json")
             
             # Apply each labeler
             labels = {}
@@ -194,48 +125,30 @@ def label_images(labeler_types: List[str] = None):
                 else:
                     logger.error(f"  ❌ {labeler.name}: {label_result.get('error')}")
             
-            # Save labels
-            label_data = {
-                "image_filename": image_filename,
-                "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-                "metadata": metadata,
-                "labels": labels
-            }
+            # Save labels to database
+            image_id = image_info.get("id")
+            if not image_id:
+                # Try to get image ID from database by filename
+                img = db.get_image_by_filename(image_filename)
+                if img:
+                    image_id = img.id
             
-            if local_testing:
-                labels_dir = output_dir / "labels"
-                labels_dir.mkdir(parents=True, exist_ok=True)
-                labels_path = labels_dir / f"{image_filename}.json"
-                with open(labels_path, 'w') as f:
-                    json.dump(label_data, f, indent=2, default=str)
-                logger.info(f"💾 Saved labels locally: {labels_path}")
-            # Cloud storage mode - labels now saved only to database
-                
-                # Save to database
-                if db:
-                    image_id = image_info.get("id")
-                    if not image_id:
-                        # Try to get image ID from database by filename
-                        img = db.get_image_by_filename(image_filename)
-                        if img:
-                            image_id = img.id
-                    
-                    if image_id:
-                        for labeler_key, label_result in labels.items():
-                            if label_result.get("status") == "success":
-                                label = ImageLabel(
-                                    image_id=image_id,
-                                    labeler_name=labeler_key,
-                                    labeler_version="1.0",
-                                    fog_score=label_result.get('fog_score'),
-                                    fog_level=label_result.get('fog_level'),
-                                    confidence=label_result.get('confidence'),
-                                    reasoning=label_result.get('reasoning'),
-                                    visibility_estimate=label_result.get('visibility_estimate'),
-                                    weather_conditions=label_result.get('weather_conditions', []),
-                                    label_data=label_result
-                                )
-                                db.save_image_label(label)
+            if image_id:
+                for labeler_key, label_result in labels.items():
+                    if label_result.get("status") == "success":
+                        label = ImageLabel(
+                            image_id=image_id,
+                            labeler_name=labeler_key,
+                            labeler_version="1.0",
+                            fog_score=label_result.get('fog_score'),
+                            fog_level=label_result.get('fog_level'),
+                            confidence=label_result.get('confidence'),
+                            reasoning=label_result.get('reasoning'),
+                            visibility_estimate=label_result.get('visibility_estimate'),
+                            weather_conditions=label_result.get('weather_conditions', []),
+                            label_data=label_result
+                        )
+                        db.save_image_label(label)
             
         except Exception as e:
             logger.error(f"Failed to process {image_filename}: {e}")

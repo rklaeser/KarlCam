@@ -73,4 +73,10 @@ dist/
 .env.local
 .env.development.local
 .env.test.local
-.env.production.localreview/backend/karlcam-service-account.json
+.env.production.local
+
+# MCP configuration files (contain sensitive database credentials)
+.mcp.json
+.gemini/settings.json
+
+review/backend/karlcam-service-account.json
