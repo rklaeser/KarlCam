@@ -10,7 +10,7 @@ resource "google_cloud_run_v2_service" "karlcam_api" {
     service_account = google_service_account.karlcam_backend.email
     
     containers {
-      image = "gcr.io/${var.project_id}/karlcam-api:latest"
+      image = "gcr.io/${var.project_id}/karlcam-api:${var.image_tag}"
       
       env {
         name  = "PROJECT_ID"
@@ -45,8 +45,8 @@ resource "google_cloud_run_v2_service" "karlcam_api" {
     }
 
     scaling {
-      min_instance_count = 0
-      max_instance_count = 10
+      min_instance_count = var.auto_scaling_min_instances
+      max_instance_count = var.max_api_instances
     }
   }
 
@@ -71,7 +71,7 @@ resource "google_cloud_run_v2_service" "karlcam_frontend" {
     service_account = google_service_account.karlcam_backend.email
     
     containers {
-      image = "gcr.io/${var.project_id}/karlcam-frontend:latest"
+      image = "gcr.io/${var.project_id}/karlcam-frontend:${var.image_tag}"
 
       resources {
         limits = {
@@ -86,8 +86,8 @@ resource "google_cloud_run_v2_service" "karlcam_frontend" {
     }
 
     scaling {
-      min_instance_count = 0
-      max_instance_count = 5
+      min_instance_count = var.auto_scaling_min_instances
+      max_instance_count = var.max_frontend_instances
     }
   }
 
@@ -109,7 +109,7 @@ resource "google_cloud_run_v2_service" "karlcam_admin_backend" {
     service_account = google_service_account.karlcam_backend.email
     
     containers {
-      image = "gcr.io/${var.project_id}/karlcam-admin-backend:latest"
+      image = "gcr.io/${var.project_id}/karlcam-admin-backend:${var.image_tag}"
       
       env {
         name  = "PROJECT_ID"
@@ -144,8 +144,8 @@ resource "google_cloud_run_v2_service" "karlcam_admin_backend" {
     }
 
     scaling {
-      min_instance_count = 0
-      max_instance_count = 3
+      min_instance_count = var.auto_scaling_min_instances
+      max_instance_count = var.max_admin_instances
     }
   }
 
@@ -170,7 +170,7 @@ resource "google_cloud_run_v2_service" "karlcam_admin_frontend" {
     service_account = google_service_account.karlcam_backend.email
     
     containers {
-      image = "gcr.io/${var.project_id}/karlcam-admin-frontend:latest"
+      image = "gcr.io/${var.project_id}/karlcam-admin-frontend:${var.image_tag}"
 
       resources {
         limits = {
@@ -185,8 +185,8 @@ resource "google_cloud_run_v2_service" "karlcam_admin_frontend" {
     }
 
     scaling {
-      min_instance_count = 0
-      max_instance_count = 2
+      min_instance_count = var.auto_scaling_min_instances
+      max_instance_count = var.max_admin_instances
     }
   }
 
@@ -209,7 +209,7 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
       service_account = google_service_account.karlcam_backend.email
       
       containers {
-        image = "gcr.io/${var.project_id}/karlcam-collector:latest"
+        image = "gcr.io/${var.project_id}/karlcam-collector:${var.image_tag}"
         
         env {
           name  = "PROJECT_ID"
@@ -261,7 +261,7 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
       service_account = google_service_account.karlcam_backend.email
       
       containers {
-        image = "gcr.io/${var.project_id}/karlcam-labeler:latest"
+        image = "gcr.io/${var.project_id}/karlcam-labeler:${var.image_tag}"
         
         env {
           name  = "USE_CLOUD_STORAGE"

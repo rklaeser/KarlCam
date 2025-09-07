@@ -1,0 +1,297 @@
+name: Terraform Deploy
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: false
+        default: 'latest'
+
+env:
+  TF_VERSION: '1.5.0'
+  GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+  TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
+  TF_VAR_gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+
+jobs:
+  # Terraform Plan - Always runs
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.determine-env.outputs.environment }}
+      image_tag: ${{ steps.determine-tag.outputs.tag }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Determine environment
+        id: determine-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Determine image tag
+        id: determine-tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform workspace select ${{ steps.determine-env.outputs.environment }} || terraform workspace new ${{ steps.determine-env.outputs.environment }}
+      
+      - name: Terraform Format Check
+        working-directory: ./terraform
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+      
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+      
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: |
+          terraform plan \
+            -var-file="environments/${{ steps.determine-env.outputs.environment }}/terraform.tfvars" \
+            -var="image_tag=${{ steps.determine-tag.outputs.tag }}" \
+            -out=tfplan \
+            -input=false
+      
+      - name: Upload Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ steps.determine-env.outputs.environment }}
+          path: terraform/tfplan
+
+  # Build and Push Docker Images
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: terraform-plan
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+      
+      - name: Build and Push Images
+        env:
+          PROJECT_ID: karlcam
+          IMAGE_TAG: ${{ needs.terraform-plan.outputs.image_tag }}
+        run: |
+          # Build all Docker images
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-collector:${IMAGE_TAG} -f collect/infra/Dockerfile.prod .
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-labeler:${IMAGE_TAG} -f label/infra/Dockerfile.prod .
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-api:${IMAGE_TAG} -f web/api/infra/Dockerfile.prod .
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-admin-backend:${IMAGE_TAG} -f admin/backend/infra/Dockerfile.prod .
+          
+          # Build frontend apps
+          cd web/frontend
+          npm ci
+          REACT_APP_API_BASE_URL=https://api.${{ needs.terraform-plan.outputs.environment == 'staging' && 'staging.' || '' }}karl.cam npm run build
+          cd ../..
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-frontend:${IMAGE_TAG} -f web/frontend/infra/Dockerfile.prod .
+          
+          cd admin/frontend
+          npm ci
+          REACT_APP_API_BASE_URL=https://admin-api.${{ needs.terraform-plan.outputs.environment == 'staging' && 'staging.' || '' }}karl.cam npm run build
+          cd ../..
+          docker build -t gcr.io/${PROJECT_ID}/karlcam-admin-frontend:${IMAGE_TAG} -f admin/frontend/infra/Dockerfile.prod .
+          
+          # Push all images
+          docker push gcr.io/${PROJECT_ID}/karlcam-collector:${IMAGE_TAG}
+          docker push gcr.io/${PROJECT_ID}/karlcam-labeler:${IMAGE_TAG}
+          docker push gcr.io/${PROJECT_ID}/karlcam-api:${IMAGE_TAG}
+          docker push gcr.io/${PROJECT_ID}/karlcam-frontend:${IMAGE_TAG}
+          docker push gcr.io/${PROJECT_ID}/karlcam-admin-backend:${IMAGE_TAG}
+          docker push gcr.io/${PROJECT_ID}/karlcam-admin-frontend:${IMAGE_TAG}
+          
+          # Also tag as latest for the environment
+          if [[ "${{ needs.terraform-plan.outputs.environment }}" == "staging" ]]; then
+            for service in collector labeler api frontend admin-backend admin-frontend; do
+              docker tag gcr.io/${PROJECT_ID}/karlcam-${service}:${IMAGE_TAG} gcr.io/${PROJECT_ID}/karlcam-${service}:staging
+              docker push gcr.io/${PROJECT_ID}/karlcam-${service}:staging
+            done
+          fi
+
+  # Deploy to Staging - Automatic
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, build-images]
+    if: |
+      (github.ref == 'refs/heads/staging' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.karl.cam
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      
+      - name: Download Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan-staging
+          path: terraform/
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform workspace select staging
+      
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: |
+          terraform apply tfplan
+      
+      - name: Run Smoke Tests
+        run: |
+          # Wait for services to be ready
+          sleep 30
+          
+          # Test API endpoint
+          curl -f https://api.staging.karl.cam/api/public/cameras || exit 1
+          
+          # Test frontend
+          curl -f https://staging.karl.cam || exit 1
+      
+      - name: Post Deployment Tasks
+        run: |
+          echo "Staging deployment completed!"
+          echo "Frontend: https://staging.karl.cam"
+          echo "API: https://api.staging.karl.cam"
+          echo "Admin: https://admin.staging.karl.cam"
+
+  # Deploy to Production - Manual Approval Required
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [terraform-plan, build-images, deploy-staging]
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://karl.cam
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Configure Google Cloud credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+      
+      - name: Download Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan-production
+          path: terraform/
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform workspace select production
+      
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: |
+          terraform apply tfplan
+      
+      - name: Run Health Checks
+        run: |
+          # Wait for services to be ready
+          sleep 30
+          
+          # Test API endpoint
+          curl -f https://api.karl.cam/api/public/cameras || exit 1
+          
+          # Test frontend
+          curl -f https://karl.cam || exit 1
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: deploy-${{ github.sha }}
+          release_name: Production Deploy ${{ github.sha }}
+          body: |
+            Production deployment completed successfully
+            - Frontend: https://karl.cam
+            - API: https://api.karl.cam
+            - Admin: https://admin.karl.cam
+            - Image Tag: ${{ needs.terraform-plan.outputs.image_tag }}
+          draft: false
+          prerelease: false

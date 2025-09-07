@@ -1,5 +1,5 @@
 # Cloud Build configuration for KarlCam
-# Simple version that rebuilds all containers on every push to main
+# Handles both staging and production deployments based on branch
 
 substitutions:
   _PROJECT_ID: karlcam
@@ -20,6 +20,8 @@ steps:
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
       - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${BRANCH_NAME}'
+      - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
       - '-f'
       - 'collect/infra/Dockerfile.prod'
@@ -31,6 +33,8 @@ steps:
       - 'build'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${BRANCH_NAME}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:latest'
       - '-f'
@@ -44,6 +48,8 @@ steps:
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
       - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-api:${BRANCH_NAME}'
+      - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-api:latest'
       - '-f'
       - 'web/api/infra/Dockerfile.prod'
@@ -56,12 +62,14 @@ steps:
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
       - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${BRANCH_NAME}'
+      - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:latest'
       - '-f'
       - 'admin/backend/infra/Dockerfile.prod'
       - '.'
 
-  # Build frontend with npm
+  # Build frontend with npm - conditional API URL based on branch
   - name: 'node:18-alpine'
     id: 'npm-frontend'
     entrypoint: 'sh'
@@ -70,7 +78,11 @@ steps:
       - |
         cd web/frontend
         npm ci
-        REACT_APP_API_BASE_URL=https://api.karl.cam npm run build
+        if [ "${BRANCH_NAME}" = "staging" ]; then
+          REACT_APP_API_BASE_URL=https://api.staging.karl.cam npm run build
+        else
+          REACT_APP_API_BASE_URL=https://api.karl.cam npm run build
+        fi
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-frontend'
@@ -79,13 +91,15 @@ steps:
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
       - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${BRANCH_NAME}'
+      - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:latest'
       - '-f'
       - 'web/frontend/infra/Dockerfile.prod'
       - '.'
     waitFor: ['npm-frontend']
 
-  # Build admin frontend with npm
+  # Build admin frontend with npm - conditional API URL based on branch
   - name: 'node:18-alpine'
     id: 'npm-admin-frontend'
     entrypoint: 'sh'
@@ -94,7 +108,11 @@ steps:
       - |
         cd admin/frontend
         npm ci
-        REACT_APP_API_BASE_URL=https://admin-api.karl.cam npm run build
+        if [ "${BRANCH_NAME}" = "staging" ]; then
+          REACT_APP_API_BASE_URL=https://admin-api.staging.karl.cam npm run build
+        else
+          REACT_APP_API_BASE_URL=https://admin-api.karl.cam npm run build
+        fi
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-admin-frontend'
@@ -102,6 +120,8 @@ steps:
       - 'build'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${BRANCH_NAME}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:latest'
       - '-f'
@@ -140,126 +160,97 @@ steps:
     args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend']
     waitFor: ['build-admin-frontend']
 
-  # Deploy all services to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-api'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'karlcam-api-v2'
-      - '--image=gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--set-env-vars=PROJECT_ID=${_PROJECT_ID},BUCKET_NAME=${_BUCKET_NAME}'
-      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
-      - '--quiet'
-    waitFor: ['push-api']
-
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-frontend'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'karlcam-frontend-v2'
-      - '--image=gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
-      - '--quiet'
-    waitFor: ['push-frontend']
-
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-admin-backend'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'karlcam-admin-backend-v2'
-      - '--image=gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--platform=managed'
-      - '--no-allow-unauthenticated'
-      - '--set-env-vars=PROJECT_ID=${_PROJECT_ID},BUCKET_NAME=${_BUCKET_NAME}'
-      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
-      - '--quiet'
-    waitFor: ['push-admin-backend']
-
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-admin-frontend'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'karlcam-admin-frontend-v2'
-      - '--image=gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--platform=managed'
-      - '--no-allow-unauthenticated'
-      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
-      - '--quiet'
-    waitFor: ['push-admin-frontend']
-
-  # Update Cloud Run Job for collector
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'update-collector-job'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'jobs'
-      - 'update'
-      - 'karlcam-collector-v2'
-      - '--image=gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com'
-      - '--quiet'
-    waitFor: ['push-collector']
-
-  # Update or create Cloud Run Job for labeler
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'update-labeler-job'
-    entrypoint: 'bash'
+  # Conditional Terraform deployment based on branch
+  - name: 'hashicorp/terraform:1.5'
+    id: 'terraform-deploy'
+    entrypoint: 'sh'
     args:
       - '-c'
       - |
-        # Try to update existing job first, create if it doesn't exist
-        if gcloud run jobs update karlcam-labeler-v2 \
-          --image=gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA} \
-          --region=${_REGION} \
-          --service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com \
-          --quiet 2>/dev/null; then
-          echo "Updated existing labeler job"
+        if [ "${BRANCH_NAME}" = "staging" ] || [ "${BRANCH_NAME}" = "main" ]; then
+          echo "🚀 Deploying to environment based on branch: ${BRANCH_NAME}"
+          
+          # Determine environment
+          if [ "${BRANCH_NAME}" = "staging" ]; then
+            ENVIRONMENT="staging"
+            echo "📦 Deploying to STAGING environment"
+          elif [ "${BRANCH_NAME}" = "main" ]; then
+            ENVIRONMENT="production"
+            echo "🚨 Deploying to PRODUCTION environment"
+            echo "Note: This deployment requires manual approval in Cloud Build trigger"
+          else
+            echo "❌ Unknown branch: ${BRANCH_NAME}"
+            exit 1
+          fi
+          
+          # Initialize Terraform
+          cd terraform
+          terraform init -backend-config="bucket=karlcam-terraform-state" \
+                        -backend-config="prefix=terraform/state/${ENVIRONMENT}"
+          
+          # Select or create workspace
+          terraform workspace select ${ENVIRONMENT} || terraform workspace new ${ENVIRONMENT}
+          
+          # Apply Terraform configuration
+          terraform apply -auto-approve \
+            -var-file="environments/${ENVIRONMENT}/terraform.tfvars" \
+            -var="image_tag=${SHORT_SHA}" \
+            -var="project_id=${_PROJECT_ID}" \
+            -var="database_password=${_DATABASE_PASSWORD}" \
+            -var="gemini_api_key=${_GEMINI_API_KEY}"
+          
+          echo "✅ Deployment to ${ENVIRONMENT} completed successfully!"
+          
+          # Output useful information
+          echo ""
+          echo "📊 Deployment Summary:"
+          echo "Environment: ${ENVIRONMENT}"
+          echo "Image Tag: ${SHORT_SHA}"
+          if [ "${ENVIRONMENT}" = "staging" ]; then
+            echo "Frontend URL: https://staging.karl.cam"
+            echo "API URL: https://api.staging.karl.cam"
+            echo "Admin URL: https://admin.staging.karl.cam"
+          else
+            echo "Frontend URL: https://karl.cam"
+            echo "API URL: https://api.karl.cam"
+            echo "Admin URL: https://admin.karl.cam"
+          fi
         else
-          echo "Creating new labeler job"
-          gcloud run jobs create karlcam-labeler-v2 \
-            --image=gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA} \
-            --region=${_REGION} \
-            --memory=2Gi \
-            --cpu=1 \
-            --max-retries=1 \
-            --parallelism=1 \
-            --set-env-vars="USE_CLOUD_STORAGE=true,OUTPUT_BUCKET=${_BUCKET_NAME}" \
-            --set-secrets="DATABASE_URL=database-url-v2:latest,GEMINI_API_KEY=gemini-api-key-v2:latest" \
-            --service-account=karlcam-backend@${_PROJECT_ID}.iam.gserviceaccount.com \
-            --quiet
+          echo "⏭️  Skipping deployment - branch ${BRANCH_NAME} is not configured for auto-deployment"
+          echo "Only 'staging' and 'main' branches trigger deployments"
         fi
-    waitFor: ['push-labeler']
+    env:
+      - 'TF_VAR_database_password=${_DATABASE_PASSWORD}'
+      - 'TF_VAR_gemini_api_key=${_GEMINI_API_KEY}'
+    secretEnv: ['DATABASE_PASSWORD', 'GEMINI_API_KEY']
+    waitFor: 
+      - 'push-collector'
+      - 'push-labeler'
+      - 'push-api'
+      - 'push-frontend'
+      - 'push-admin-backend'
+      - 'push-admin-frontend'
+
+# Secrets configuration
+availableSecrets:
+  secretManager:
+    - versionName: projects/${_PROJECT_ID}/secrets/database-password/versions/latest
+      env: 'DATABASE_PASSWORD'
+    - versionName: projects/${_PROJECT_ID}/secrets/gemini-api-key/versions/latest
+      env: 'GEMINI_API_KEY'
 
 images:
   - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-api:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-api:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-backend:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:latest'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${BRANCH_NAME}'
 
 timeout: '1800s'

@@ -9,20 +9,20 @@ resource "google_sql_database_instance" "karlcam_db" {
   project         = var.project_id
 
   settings {
-    tier                        = "db-f1-micro"
+    tier                        = var.sql_instance_tier
     availability_type          = "ZONAL"
     disk_type                  = "PD_SSD"
     disk_size                  = 10
     disk_autoresize            = true
     disk_autoresize_limit      = 100
-    deletion_protection_enabled = false
+    deletion_protection_enabled = var.enable_deletion_protection
 
     backup_configuration {
       enabled                        = true
       start_time                     = "03:00"
       point_in_time_recovery_enabled = true
       backup_retention_settings {
-        retained_backups = 7
+        retained_backups = var.backup_retention_days
       }
     }
 
@@ -46,7 +46,7 @@ resource "google_sql_database_instance" "karlcam_db" {
     }
   }
 
-  deletion_protection = false
+  deletion_protection = var.enable_deletion_protection
 
   lifecycle {
     prevent_destroy = true

@@ -55,13 +55,13 @@ variable "admin_api_subdomain" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name (dev, staging, production)"
   type        = string
-  default     = "prod"
+  default     = "production"
   
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod."
+    condition     = contains(["dev", "staging", "production"], var.environment)
+    error_message = "Environment must be dev, staging, or production."
   }
 }
 
@@ -110,4 +110,28 @@ variable "labeler_schedule" {
   description = "Cron schedule for the labeler job"
   type        = string
   default     = "30 2 * * *"   # Daily at 2:30 AM
+}
+
+variable "sql_instance_tier" {
+  description = "Cloud SQL instance tier"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "auto_scaling_min_instances" {
+  description = "Minimum number of instances for auto-scaling"
+  type        = number
+  default     = 0
+}
+
+variable "auto_scaling_max_instances" {
+  description = "Maximum number of instances for auto-scaling"
+  type        = number
+  default     = 10
+}
+
+variable "image_tag" {
+  description = "Docker image tag to deploy"
+  type        = string
+  default     = "latest"
 }
