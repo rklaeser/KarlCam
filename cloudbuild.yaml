@@ -167,57 +167,39 @@ steps:
     args:
       - '-c'
       - |
-        if [ "${BRANCH_NAME}" = "staging" ] || [ "${BRANCH_NAME}" = "main" ]; then
-          echo "🚀 Deploying to environment based on branch: ${BRANCH_NAME}"
-          
-          # Determine environment
-          if [ "${BRANCH_NAME}" = "staging" ]; then
-            ENVIRONMENT="staging"
-            echo "📦 Deploying to STAGING environment"
-          elif [ "${BRANCH_NAME}" = "main" ]; then
-            ENVIRONMENT="production"
-            echo "🚨 Deploying to PRODUCTION environment"
-            echo "Note: This deployment requires manual approval in Cloud Build trigger"
-          else
-            echo "❌ Unknown branch: ${BRANCH_NAME}"
-            exit 1
-          fi
-          
-          # Initialize Terraform
-          cd terraform
-          terraform init -backend-config="bucket=karlcam-terraform-state" \
-                        -backend-config="prefix=terraform/state/${ENVIRONMENT}"
-          
-          # Select or create workspace
-          terraform workspace select ${ENVIRONMENT} || terraform workspace new ${ENVIRONMENT}
-          
-          # Apply Terraform configuration
-          terraform apply -auto-approve \
-            -var-file="environments/${ENVIRONMENT}/terraform.tfvars" \
-            -var="image_tag=${SHORT_SHA}" \
-            -var="project_id=${_PROJECT_ID}" \
-            -var="database_password=${_DATABASE_PASSWORD}" \
-            -var="gemini_api_key=${_GEMINI_API_KEY}"
-          
-          echo "✅ Deployment to ${ENVIRONMENT} completed successfully!"
-          
-          # Output useful information
-          echo ""
-          echo "📊 Deployment Summary:"
-          echo "Environment: ${ENVIRONMENT}"
-          echo "Image Tag: ${SHORT_SHA}"
-          if [ "${ENVIRONMENT}" = "staging" ]; then
-            echo "Frontend URL: https://staging.karl.cam"
-            echo "API URL: https://api.staging.karl.cam"
-            echo "Admin URL: https://admin.staging.karl.cam"
-          else
-            echo "Frontend URL: https://karl.cam"
-            echo "API URL: https://api.karl.cam"
-            echo "Admin URL: https://admin.karl.cam"
-          fi
+        echo "🚀 Deploying to ${_ENVIRONMENT} environment"
+        
+        # Initialize Terraform
+        cd terraform
+        terraform init -backend-config="bucket=karlcam-terraform-state" \
+                      -backend-config="prefix=terraform/state/${_ENVIRONMENT}"
+        
+        # Select or create workspace
+        terraform workspace select ${_ENVIRONMENT} || terraform workspace new ${_ENVIRONMENT}
+        
+        # Apply Terraform configuration
+        terraform apply -auto-approve \
+          -var-file="environments/${_ENVIRONMENT}/terraform.tfvars" \
+          -var="image_tag=${SHORT_SHA}" \
+          -var="project_id=${_PROJECT_ID}" \
+          -var="database_password=${_DATABASE_PASSWORD}" \
+          -var="gemini_api_key=${_GEMINI_API_KEY}"
+        
+        echo "✅ Deployment to ${_ENVIRONMENT} completed successfully!"
+        
+        # Output useful information
+        echo ""
+        echo "📊 Deployment Summary:"
+        echo "Environment: ${_ENVIRONMENT}"
+        echo "Image Tag: ${SHORT_SHA}"
+        if [ "${_ENVIRONMENT}" = "staging" ]; then
+          echo "Frontend URL: https://staging.karl.cam"
+          echo "API URL: https://api.staging.karl.cam"
+          echo "Admin URL: https://admin.staging.karl.cam"
         else
-          echo "⏭️  Skipping deployment - branch ${BRANCH_NAME} is not configured for auto-deployment"
-          echo "Only 'staging' and 'main' branches trigger deployments"
+          echo "Frontend URL: https://karl.cam"
+          echo "API URL: https://api.karl.cam"
+          echo "Admin URL: https://admin.karl.cam"
         fi
     env:
       - 'TF_VAR_database_password=${_DATABASE_PASSWORD}'
