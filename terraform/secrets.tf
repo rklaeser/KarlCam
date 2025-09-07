@@ -2,7 +2,7 @@
 
 # Secret for Database Connection URL
 resource "google_secret_manager_secret" "database_url" {
-  secret_id = "database-url-v2"
+  secret_id = "database-url-${var.environment}"
   project   = var.project_id
 
   replication {
@@ -30,7 +30,7 @@ resource "google_secret_manager_secret_version" "database_url" {
 
 # Secret for Gemini API Key
 resource "google_secret_manager_secret" "gemini_api_key" {
-  secret_id = "gemini-api-key-v2"
+  secret_id = "gemini-api-key-${var.environment}"
   project   = var.project_id
 
   replication {
@@ -52,7 +52,7 @@ resource "google_secret_manager_secret_version" "gemini_api_key" {
 
 # Optional: Secret for Database Password (separate from connection string)
 resource "google_secret_manager_secret" "database_password" {
-  secret_id = "karlcam-db-password-v2"
+  secret_id = "karlcam-db-password-${var.environment}"
   project   = var.project_id
 
   replication {

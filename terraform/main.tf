@@ -55,14 +55,14 @@ resource "google_sql_database_instance" "karlcam_db" {
 
 # V2 Database
 resource "google_sql_database" "karlcam_v2" {
-  name     = "karlcam_v2"
+  name     = "karlcam_${var.environment}"
   instance = google_sql_database_instance.karlcam_db.name
   project  = var.project_id
 }
 
 # V2 Database User
 resource "google_sql_user" "karlcam_v2_user" {
-  name     = "karlcam_v2"
+  name     = "karlcam_${var.environment}"
   instance = google_sql_database_instance.karlcam_db.name
   password = var.database_password
   project  = var.project_id

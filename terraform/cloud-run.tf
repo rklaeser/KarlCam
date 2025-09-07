@@ -240,7 +240,6 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
       }
 
       max_retries = 1
-      parallelism = 1
     }
   }
 
@@ -302,7 +301,6 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
       }
 
       max_retries = 1
-      parallelism = 1
     }
   }
 

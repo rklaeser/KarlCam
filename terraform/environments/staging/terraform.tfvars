@@ -1,7 +1,7 @@
 # KarlCam Staging Environment Configuration
 
 # Basic Configuration
-project_id  = "karlcam-staging"  # Or use same project with different naming
+project_id  = "karlcam"  # Use same project with staging naming
 region      = "us-central1"
 environment = "staging"
 
