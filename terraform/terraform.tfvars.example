@@ -1,0 +1,37 @@
+# KarlCam Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required Variables
+project_id = "karlcam"
+region     = "us-central1"
+domain     = "karl.cam"
+
+# Storage Configuration
+bucket_name = "karlcam-v2-data"
+
+# Secrets (keep secure!)
+# database_password = "your-secure-database-password"
+# gemini_api_key    = "your-gemini-api-key"
+
+# Optional Customizations
+environment = "prod"
+
+# Scaling Limits
+max_api_instances      = 10
+max_frontend_instances = 5
+max_admin_instances    = 3
+
+# Scheduled Jobs (cron format)
+collector_schedule = "0 */4 * * *"  # Every 4 hours
+labeler_schedule   = "30 2 * * *"   # Daily at 2:30 AM
+
+# Database Configuration
+backup_retention_days = 7
+
+# Security
+enable_deletion_protection = true
+
+# Subdomain Configuration (optional)
+# api_subdomain       = "api"
+# admin_subdomain     = "admin"
+# admin_api_subdomain = "admin-api"

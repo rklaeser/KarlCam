@@ -342,6 +342,65 @@ async def get_stats():
             "timestamp": datetime.now().isoformat()
         }
 
+@app.get("/api/system/status")
+async def get_system_status():
+    """Get system status including karlcam mode"""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT status_key, status_value, description, updated_at, updated_by
+                    FROM system_status 
+                    WHERE status_key = 'karlcam_mode'
+                """)
+                
+                status = cur.fetchone()
+                if not status:
+                    return {"karlcam_mode": 0, "description": "Default mode"}
+                
+                return {
+                    "karlcam_mode": status['status_value'],
+                    "description": status['description'],
+                    "updated_at": status['updated_at'].isoformat() if status['updated_at'] else None,
+                    "updated_by": status['updated_by']
+                }
+                
+    except Exception as e:
+        logger.error(f"Error fetching system status: {e}")
+        return {"karlcam_mode": 0, "description": "Default mode (error)"}
+
+@app.post("/api/system/status")
+async def set_system_status(request: dict):
+    """Set system status - for internal use by labeler"""
+    try:
+        karlcam_mode = request.get('karlcam_mode', 0)
+        updated_by = request.get('updated_by', 'api')
+        
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO system_status (status_key, status_value, updated_by, updated_at)
+                    VALUES ('karlcam_mode', %s, %s, NOW())
+                    ON CONFLICT (status_key) 
+                    DO UPDATE SET 
+                        status_value = EXCLUDED.status_value,
+                        updated_by = EXCLUDED.updated_by,
+                        updated_at = NOW()
+                """, (karlcam_mode, updated_by))
+                
+                conn.commit()
+                
+                return {
+                    "success": True,
+                    "karlcam_mode": karlcam_mode,
+                    "updated_by": updated_by,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+    except Exception as e:
+        logger.error(f"Error setting system status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update system status")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8002)

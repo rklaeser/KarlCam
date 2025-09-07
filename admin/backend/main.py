@@ -461,7 +461,7 @@ async def get_cameras():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, description, url, video_url, latitude, longitude, created_at
+                    SELECT id, name, description, url, video_url, latitude, longitude, active, created_at
                     FROM webcams
                     ORDER BY name
                 """)
@@ -475,6 +475,7 @@ async def get_cameras():
                     "video_url": cam.get('video_url', ''),
                     "latitude": float(cam['latitude']) if cam['latitude'] else 37.7749,
                     "longitude": float(cam['longitude']) if cam['longitude'] else -122.4194,
+                    "active": cam.get('active', True),
                     "created_at": cam['created_at'].isoformat() if cam['created_at'] else None
                 }
                 for cam in cameras
@@ -497,9 +498,9 @@ async def create_camera(camera_data: dict):
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    INSERT INTO webcams (id, name, description, url, video_url, latitude, longitude)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, name, description, url, video_url, latitude, longitude, created_at
+                    INSERT INTO webcams (id, name, description, url, video_url, latitude, longitude, active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, name, description, url, video_url, latitude, longitude, active, created_at
                 """, (
                     camera_id,
                     camera_data['name'], 
@@ -507,7 +508,8 @@ async def create_camera(camera_data: dict):
                     camera_data['url'], 
                     camera_data.get('video_url', ''),
                     camera_data.get('latitude', 37.7749),
-                    camera_data.get('longitude', -122.4194)
+                    camera_data.get('longitude', -122.4194),
+                    camera_data.get('active', True)
                 ))
                 camera = cur.fetchone()
                 conn.commit()
@@ -519,6 +521,7 @@ async def create_camera(camera_data: dict):
                     "video_url": camera.get('video_url', ''),
                     "latitude": float(camera['latitude']) if camera['latitude'] else 37.7749,
                     "longitude": float(camera['longitude']) if camera['longitude'] else -122.4194,
+                    "active": camera.get('active', True),
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except Exception as e:
@@ -533,9 +536,9 @@ async def update_camera(camera_id: str, camera_data: dict):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
                     UPDATE webcams 
-                    SET name = %s, description = %s, url = %s, video_url = %s, latitude = %s, longitude = %s
+                    SET name = %s, description = %s, url = %s, video_url = %s, latitude = %s, longitude = %s, active = %s
                     WHERE id = %s
-                    RETURNING id, name, description, url, video_url, latitude, longitude, created_at
+                    RETURNING id, name, description, url, video_url, latitude, longitude, active, created_at
                 """, (
                     camera_data['name'], 
                     camera_data['description'], 
@@ -543,6 +546,7 @@ async def update_camera(camera_id: str, camera_data: dict):
                     camera_data.get('video_url', ''),
                     camera_data.get('latitude', 37.7749),
                     camera_data.get('longitude', -122.4194),
+                    camera_data.get('active', True),
                     camera_id
                 ))
                 camera = cur.fetchone()
@@ -557,6 +561,7 @@ async def update_camera(camera_id: str, camera_data: dict):
                     "video_url": camera.get('video_url', ''),
                     "latitude": float(camera['latitude']) if camera['latitude'] else 37.7749,
                     "longitude": float(camera['longitude']) if camera['longitude'] else -122.4194,
+                    "active": camera.get('active', True),
                     "created_at": camera['created_at'].isoformat() if camera['created_at'] else None
                 }
     except HTTPException:
@@ -582,6 +587,42 @@ async def delete_camera(camera_id: str):
     except Exception as e:
         logger.error(f"Error deleting camera: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete camera")
+
+@app.patch("/api/cameras/{camera_id}/toggle-active")
+async def toggle_camera_active(camera_id: str):
+    """Toggle camera active status"""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Get current active status
+                cur.execute("SELECT active FROM webcams WHERE id = %s", (camera_id,))
+                camera = cur.fetchone()
+                if not camera:
+                    raise HTTPException(status_code=404, detail="Camera not found")
+                
+                # Toggle the active status
+                new_active = not camera['active']
+                cur.execute("""
+                    UPDATE webcams 
+                    SET active = %s, updated_at = NOW()
+                    WHERE id = %s
+                    RETURNING id, name, active
+                """, (new_active, camera_id))
+                
+                updated_camera = cur.fetchone()
+                conn.commit()
+                
+                return {
+                    "id": updated_camera['id'],
+                    "name": updated_camera['name'],
+                    "active": updated_camera['active'],
+                    "message": f"Camera {'activated' if new_active else 'deactivated'} successfully"
+                }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling camera active status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to toggle camera active status")
 
 @app.get("/api/images", response_model=List[ImageForReview])
 async def get_images_for_review(

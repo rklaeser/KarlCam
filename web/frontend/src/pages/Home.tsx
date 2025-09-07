@@ -28,10 +28,14 @@ interface Webcam {
 const Home: React.FC = () => {
   const [webcams, setWebcams] = useState<Webcam[]>([]);
   const [cameras, setCameras] = useState<CameraConditions[]>([]);
-  const [mapLoading, setMapLoading] = useState(true);
-  const [camerasLoading, setCamerasLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<{karlcam_mode: number} | null>(null);
+  
+  // Check if we're in night mode based on system status
+  const isNightMode = () => {
+    return systemStatus?.karlcam_mode === 1;
+  };
 
 
   useEffect(() => {
@@ -46,38 +50,37 @@ const Home: React.FC = () => {
     try {
       setError(null);
       
-      // First, load webcam locations to show the map quickly
-      const webcamsRes = await api.get('/api/public/webcams');
-      setWebcams(webcamsRes.data.webcams || []);
-      setMapLoading(false);
+      // Load system status and webcam locations in parallel
+      const [statusRes, webcamsRes] = await Promise.all([
+        api.get('/api/system/status'),
+        api.get('/api/public/webcams')
+      ]);
       
-      // Then load camera conditions asynchronously
-      loadCamerasOnly();
+      setSystemStatus(statusRes.data);
+      setWebcams(webcamsRes.data.webcams || []);
+      
+      // Load camera conditions only if not in night mode
+      if (statusRes.data.karlcam_mode !== 1) {
+        loadCamerasOnly();
+      }
       
     } catch (err) {
-      console.error('Error loading webcams:', err);
-      setError('Failed to load webcam locations. The service may be starting up.');
-      setMapLoading(false);
-      setCamerasLoading(false);
+      console.error('Error loading data:', err);
+      setError('Failed to load data. The service may be starting up.');
     }
   };
 
   const loadCamerasOnly = async () => {
     try {
-      setCamerasLoading(true);
       const camerasRes = await api.get('/api/public/cameras');
       setCameras(camerasRes.data.cameras || []);
-      setCamerasLoading(false);
     } catch (err) {
       console.error('Error loading camera conditions:', err);
       // Don't show error for camera conditions - just log it
-      setCamerasLoading(false);
     }
   };
 
   const refreshData = () => {
-    setMapLoading(true);
-    setCamerasLoading(true);
     loadMapAndCameras();
   };
 
@@ -109,24 +112,6 @@ const Home: React.FC = () => {
           apiBase={API_BASE_URL}
         />
         
-        {/* Loading overlay - only show before map loads */}
-        {mapLoading && (
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center" style={{ zIndex: 1000 }}>
-            <div className="text-center text-white">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-6"></div>
-              <h2 className="text-2xl font-bold mb-2">Loading Map...</h2>
-              <p className="text-blue-100">Initializing San Francisco fog tracker</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Camera loading indicator - small overlay when map is visible but cameras are loading */}
-        {!mapLoading && camerasLoading && (
-          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 flex items-center gap-2" style={{ zIndex: 1000 }}>
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm text-gray-700">Loading camera conditions...</span>
-          </div>
-        )}
         
         {/* Error overlay */}
         {error && webcams.length === 0 && (
@@ -139,6 +124,28 @@ const Home: React.FC = () => {
                 className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
               >
                 Try Again
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Night mode overlay - shown when system status indicates night mode */}
+        {!error && isNightMode() && (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-blue-900 flex items-center justify-center" style={{ zIndex: 1000 }}>
+            <div className="text-center text-white max-w-md mx-auto px-6">
+              <div className="text-6xl mb-6">🌙</div>
+              <h2 className="text-3xl font-bold mb-4">KarlCam is Sleeping</h2>
+              <p className="text-blue-100 mb-6 leading-relaxed">
+                Fog tracking is currently offline. We collect images and analyze conditions daily from 9 AM to 5 PM PT.
+              </p>
+              <p className="text-sm text-blue-200 mb-8">
+                Check back tomorrow at 9 AM for fresh fog data!
+              </p>
+              <button 
+                onClick={refreshData} 
+                className="bg-white/20 backdrop-blur-sm text-white border border-white/30 px-6 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-300"
+              >
+                Check Again
               </button>
             </div>
           </div>

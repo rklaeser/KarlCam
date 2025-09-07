@@ -131,10 +131,33 @@
   border-left: 3px solid #2196F3;
 }
 
+.camera-item.inactive {
+  opacity: 0.6;
+}
+
 .camera-name {
   font-weight: 500;
   color: #333;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inactive-badge {
+  background: #ff9800;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: normal;
+  text-transform: uppercase;
+}
+
+.inactive-indicator {
+  color: #ff9800;
+  font-weight: normal;
+  font-size: 14px;
 }
 
 .camera-url {
@@ -194,6 +217,9 @@
   margin: 20px 0;
   color: #666;
   font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .camera-actions {
@@ -247,9 +273,35 @@
   background: #d32f2f;
 }
 
+.toggle-btn {
+  background: #ff9800;
+  color: white;
+}
+
+.toggle-btn.activate {
+  background: #4CAF50;
+}
+
+.toggle-btn.activate:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.toggle-btn.deactivate {
+  background: #ff9800;
+}
+
+.toggle-btn.deactivate:hover:not(:disabled) {
+  background: #f57c00;
+}
+
 .camera-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.form-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
 }
 
 .no-selection {

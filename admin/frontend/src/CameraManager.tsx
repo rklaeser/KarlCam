@@ -10,6 +10,7 @@ interface Camera {
   video_url?: string;
   latitude: number;
   longitude: number;
+  active: boolean;
   created_at: string;
 }
 
@@ -30,7 +31,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
     url: '',
     video_url: '',
     latitude: 37.7749,
-    longitude: -122.4194
+    longitude: -122.4194,
+    active: true
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -62,7 +64,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
       url: camera.url,
       video_url: camera.video_url || '',
       latitude: camera.latitude,
-      longitude: camera.longitude
+      longitude: camera.longitude,
+      active: camera.active
     });
     setIsEditing(false);
     setIsCreating(false);
@@ -78,7 +81,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
       url: '',
       video_url: '',
       latitude: 37.7749,
-      longitude: -122.4194
+      longitude: -122.4194,
+      active: true
     });
   };
 
@@ -97,7 +101,8 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
         url: selectedCamera.url,
         video_url: selectedCamera.video_url || '',
         latitude: selectedCamera.latitude,
-        longitude: selectedCamera.longitude
+        longitude: selectedCamera.longitude,
+        active: selectedCamera.active
       });
     }
   };
@@ -144,6 +149,26 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
     }
   };
 
+  const handleToggleActive = async () => {
+    if (!selectedCamera) return;
+
+    try {
+      setLoading(true);
+      const response = await axios.patch(`${apiBase}/api/cameras/${selectedCamera.id}/toggle-active`);
+      await loadCameras();
+      // Update selected camera with new active status
+      const updatedCamera = cameras.find(c => c.id === selectedCamera.id);
+      if (updatedCamera) {
+        selectCamera(updatedCamera);
+      }
+    } catch (error) {
+      console.error('Error toggling camera active status:', error);
+      setError('Failed to toggle camera active status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -174,10 +199,13 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
               {cameras.map(camera => (
                 <div
                   key={camera.id}
-                  className={`camera-item ${selectedCamera?.id === camera.id ? 'selected' : ''}`}
+                  className={`camera-item ${selectedCamera?.id === camera.id ? 'selected' : ''} ${!camera.active ? 'inactive' : ''}`}
                   onClick={() => selectCamera(camera)}
                 >
-                  <div className="camera-name">{camera.name}</div>
+                  <div className="camera-name">
+                    {camera.name}
+                    {!camera.active && <span className="inactive-badge">Inactive</span>}
+                  </div>
                   <div className="camera-url">{camera.url}</div>
                 </div>
               ))}
@@ -187,7 +215,12 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
           <div className="camera-details">
             {(selectedCamera || isCreating) ? (
               <>
-                <h3>{isCreating ? 'New Camera' : selectedCamera?.name}</h3>
+                <h3>
+                  {isCreating ? 'New Camera' : selectedCamera?.name}
+                  {selectedCamera && !selectedCamera.active && 
+                    <span className="inactive-indicator"> (Inactive)</span>
+                  }
+                </h3>
                 
                 <div className="form-group">
                   <label>Name</label>
@@ -257,9 +290,22 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
                   />
                 </div>
 
+                <div className="form-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) => setFormData({...formData, active: e.target.checked})}
+                      disabled={!isEditing && !isCreating}
+                    />
+                    Active (Camera will be included in image collection)
+                  </label>
+                </div>
+
                 {selectedCamera && !isCreating && (
                   <div className="form-info">
                     <small>Created: {new Date(selectedCamera.created_at).toLocaleString()}</small>
+                    <small>Status: {selectedCamera.active ? 'Active' : 'Inactive'}</small>
                   </div>
                 )}
 
@@ -277,6 +323,13 @@ const CameraManager: React.FC<CameraManagerProps> = ({ isOpen, onClose, apiBase 
                     <>
                       <button className="edit-btn" onClick={startEdit}>
                         Edit
+                      </button>
+                      <button 
+                        className={`toggle-btn ${selectedCamera?.active ? 'deactivate' : 'activate'}`} 
+                        onClick={handleToggleActive} 
+                        disabled={loading}
+                      >
+                        {selectedCamera?.active ? 'Deactivate' : 'Activate'}
                       </button>
                       <button className="delete-btn" onClick={handleDelete} disabled={loading}>
                         Delete

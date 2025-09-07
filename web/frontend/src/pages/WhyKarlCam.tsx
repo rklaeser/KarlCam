@@ -58,7 +58,7 @@ const WhyKarlCam: React.FC = () => {
               <div className="mb-4">
                 <h4 className="font-semibold text-gray-800 mb-2">How it works:</h4>
                 <ul className="space-y-1 text-sm text-gray-700">
-                  <li>• Aggregates 20-30 public webcams across SF neighborhoods</li>
+                  <li>• Aggregates public webcams across SF neighborhoods</li>
                   <li>• Uses computer vision to detect ground-level fog density</li>
                   <li>• Displays color-coded fog conditions on interactive map</li>
                   <li>• Updates every 5-10 minutes</li>
