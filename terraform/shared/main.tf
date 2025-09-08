@@ -138,27 +138,3 @@ resource "google_project_service" "required_apis" {
   disable_on_destroy = false
 }
 
-# Cloud Build Service Account permissions
-resource "google_project_iam_member" "cloudbuild_service_account_editor" {
-  project = var.project_id
-  role    = "roles/editor"
-  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
-}
-
-resource "google_project_iam_member" "cloudbuild_service_account_iam_admin" {
-  project = var.project_id
-  role    = "roles/resourcemanager.projectIamAdmin"
-  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
-}
-
-resource "google_project_iam_member" "cloudbuild_service_account_cloudsql_admin" {
-  project = var.project_id
-  role    = "roles/cloudsql.admin"
-  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
-}
-
-resource "google_project_iam_member" "cloudbuild_service_account_secretmanager_admin" {
-  project = var.project_id
-  role    = "roles/secretmanager.admin"
-  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
-}

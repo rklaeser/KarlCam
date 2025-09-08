@@ -160,35 +160,6 @@ steps:
     args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend']
     waitFor: ['build-admin-frontend']
 
-  # Deploy shared infrastructure first
-  - name: 'hashicorp/terraform:1.5'
-    id: 'terraform-deploy-shared'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        echo "🏗️ Deploying shared infrastructure"
-        
-        # Deploy shared infrastructure
-        cd terraform/shared
-        terraform init -backend-config="bucket=karlcam-terraform-state" \
-                      -backend-config="prefix=terraform/state/shared" \
-                      -reconfigure
-        
-        terraform apply -auto-approve \
-          -var="project_id=${_PROJECT_ID}"
-        
-        echo "✅ Shared infrastructure deployment completed!"
-    env:
-      - 'TF_VAR_project_id=${_PROJECT_ID}'
-    waitFor: 
-      - 'push-collector'
-      - 'push-labeler'
-      - 'push-api'
-      - 'push-frontend'
-      - 'push-admin-backend'
-      - 'push-admin-frontend'
-
   # Deploy environment-specific infrastructure  
   - name: 'hashicorp/terraform:1.5'
     id: 'terraform-deploy'
@@ -196,7 +167,11 @@ steps:
     args:
       - '-c'
       - |
-        echo "🚀 Deploying to ${_ENVIRONMENT} environment"
+        echo "🚀 Deploying to ${_ENVIRONMENT} environment using terraform service account"
+        
+        # Authenticate with terraform service account
+        gcloud auth activate-service-account --key-file=/dev/null
+        gcloud config set auth/impersonate_service_account karlcam-terraform-deploy@karlcam.iam.gserviceaccount.com
         
         # Initialize Terraform with remote backend
         cd terraform
@@ -267,7 +242,12 @@ steps:
       - 'TF_VAR_gemini_api_key=${_GEMINI_API_KEY}'
     secretEnv: ['DATABASE_PASSWORD', 'GEMINI_API_KEY']
     waitFor: 
-      - 'terraform-deploy-shared'
+      - 'push-collector'
+      - 'push-labeler' 
+      - 'push-api'
+      - 'push-frontend'
+      - 'push-admin-backend'
+      - 'push-admin-frontend'
 
 # Secrets configuration
 availableSecrets:
