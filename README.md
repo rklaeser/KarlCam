@@ -1,6 +1,6 @@
 # KarlCam
 
-A serverless webcam monitoring and analysis system built on Google Cloud Platform. KarlCam automatically collects images from webcams across San Francisco, analyzes them, and provides a public interface to view current conditions and historical data.
+A serverless webcam monitoring and analysis system built on Google Cloud Platform. KarlCam  collects images from webcams across San Francisco, analyzes them, and provides a public interface to view current conditions and historical data.
 
 ## 🏗️ Architecture
 
