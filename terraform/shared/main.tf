@@ -102,6 +102,12 @@ resource "google_project_iam_member" "karlcam_backend_run_invoker" {
   member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
 }
 
+resource "google_project_iam_member" "karlcam_backend_logging" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
