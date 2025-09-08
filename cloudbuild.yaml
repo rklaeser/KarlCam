@@ -167,10 +167,7 @@ steps:
     args:
       - '-c'
       - |
-        echo "🚀 Deploying to ${_ENVIRONMENT} environment using terraform service account"
-        
-        # Configure impersonation for terraform service account
-        export CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT=karlcam-terraform-deploy@karlcam.iam.gserviceaccount.com
+        echo "🚀 Deploying to ${_ENVIRONMENT} environment"
         
         # Initialize Terraform with remote backend
         cd terraform
