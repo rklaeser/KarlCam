@@ -121,6 +121,7 @@ resource "google_project_iam_member" "karlcam_backend_artifact_registry" {
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
+    "cloudresourcemanager.googleapis.com",
     "sqladmin.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
@@ -135,4 +136,17 @@ resource "google_project_service" "required_apis" {
   service = each.key
 
   disable_on_destroy = false
+}
+
+# Cloud Build Service Account permissions
+resource "google_project_iam_member" "cloudbuild_service_account_editor" {
+  project = var.project_id
+  role    = "roles/editor"
+  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cloudbuild_service_account_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
 }
