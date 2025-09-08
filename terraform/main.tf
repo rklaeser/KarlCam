@@ -1,11 +1,40 @@
 # KarlCam Environment-Specific Infrastructure
 # Storage and environment-specific database resources
 
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 5.0"
+    }
+  }
+  
+  backend "gcs" {
+    # Configuration will be provided via init command
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
 # Data source to reference shared SQL instance
 data "terraform_remote_state" "shared" {
-  backend = "local"
+  backend = "gcs"
   config = {
-    path = "${path.module}/shared/terraform.tfstate"
+    bucket = "karlcam-terraform-state"
+    prefix = "terraform/state/shared"
   }
 }
 

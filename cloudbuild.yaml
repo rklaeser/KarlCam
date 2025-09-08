@@ -160,7 +160,36 @@ steps:
     args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend']
     waitFor: ['build-admin-frontend']
 
-  # Conditional Terraform deployment based on branch
+  # Deploy shared infrastructure first
+  - name: 'hashicorp/terraform:1.5'
+    id: 'terraform-deploy-shared'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        echo "🏗️ Deploying shared infrastructure"
+        
+        # Deploy shared infrastructure
+        cd terraform/shared
+        terraform init -backend-config="bucket=karlcam-terraform-state" \
+                      -backend-config="prefix=terraform/state/shared" \
+                      -reconfigure
+        
+        terraform apply -auto-approve \
+          -var="project_id=${_PROJECT_ID}"
+        
+        echo "✅ Shared infrastructure deployment completed!"
+    env:
+      - 'TF_VAR_project_id=${_PROJECT_ID}'
+    waitFor: 
+      - 'push-collector'
+      - 'push-labeler'
+      - 'push-api'
+      - 'push-frontend'
+      - 'push-admin-backend'
+      - 'push-admin-frontend'
+
+  # Deploy environment-specific infrastructure  
   - name: 'hashicorp/terraform:1.5'
     id: 'terraform-deploy'
     entrypoint: 'sh'
@@ -169,12 +198,13 @@ steps:
       - |
         echo "🚀 Deploying to ${_ENVIRONMENT} environment"
         
-        # Initialize Terraform
+        # Initialize Terraform with remote backend
         cd terraform
         terraform init -backend-config="bucket=karlcam-terraform-state" \
-                      -backend-config="prefix=terraform/state/${_ENVIRONMENT}"
+                      -backend-config="prefix=terraform/state/${_ENVIRONMENT}" \
+                      -reconfigure
         
-        # Select or create workspace
+        # Select or create workspace  
         terraform workspace select ${_ENVIRONMENT} || terraform workspace new ${_ENVIRONMENT}
         
         # Apply Terraform configuration
@@ -237,12 +267,7 @@ steps:
       - 'TF_VAR_gemini_api_key=${_GEMINI_API_KEY}'
     secretEnv: ['DATABASE_PASSWORD', 'GEMINI_API_KEY']
     waitFor: 
-      - 'push-collector'
-      - 'push-labeler'
-      - 'push-api'
-      - 'push-frontend'
-      - 'push-admin-backend'
-      - 'push-admin-frontend'
+      - 'terraform-deploy-shared'
 
 # Secrets configuration
 availableSecrets:
