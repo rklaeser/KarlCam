@@ -150,3 +150,15 @@ resource "google_project_iam_member" "cloudbuild_service_account_iam_admin" {
   role    = "roles/resourcemanager.projectIamAdmin"
   member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
 }
+
+resource "google_project_iam_member" "cloudbuild_service_account_cloudsql_admin" {
+  project = var.project_id
+  role    = "roles/cloudsql.admin"
+  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cloudbuild_service_account_secretmanager_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:920022785412@cloudbuild.gserviceaccount.com"
+}
