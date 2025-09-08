@@ -19,12 +19,12 @@ resource "google_secret_manager_secret" "database_url" {
 # Database URL Secret Version
 resource "google_secret_manager_secret_version" "database_url" {
   secret      = google_secret_manager_secret.database_url.id
-  secret_data = "postgresql://${google_sql_user.karlcam_v2_user.name}:${var.database_password}@/${google_sql_database.karlcam_v2.name}?host=/cloudsql/${google_sql_database_instance.karlcam_db.connection_name}"
+  secret_data = "postgresql://${google_sql_user.karlcam_db_user.name}:${var.database_password}@/${google_sql_database.karlcam_db.name}?host=/cloudsql/${data.terraform_remote_state.shared.outputs.sql_instance_connection_name}"
 
   depends_on = [
-    google_sql_database_instance.karlcam_db,
-    google_sql_database.karlcam_v2,
-    google_sql_user.karlcam_v2_user
+    data.terraform_remote_state.shared,
+    google_sql_database.karlcam_db,
+    google_sql_user.karlcam_db_user
   ]
 }
 
@@ -77,7 +77,7 @@ resource "google_secret_manager_secret_iam_binding" "database_url_access" {
   secret_id = google_secret_manager_secret.database_url.secret_id
   role      = "roles/secretmanager.secretAccessor"
   members = [
-    "serviceAccount:${google_service_account.karlcam_backend.email}",
+    "serviceAccount:${local.service_account_email}",
   ]
 }
 
@@ -85,7 +85,7 @@ resource "google_secret_manager_secret_iam_binding" "gemini_api_key_access" {
   secret_id = google_secret_manager_secret.gemini_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   members = [
-    "serviceAccount:${google_service_account.karlcam_backend.email}",
+    "serviceAccount:${local.service_account_email}",
   ]
 }
 
@@ -93,6 +93,6 @@ resource "google_secret_manager_secret_iam_binding" "database_password_access" {
   secret_id = google_secret_manager_secret.database_password.secret_id
   role      = "roles/secretmanager.secretAccessor"
   members = [
-    "serviceAccount:${google_service_account.karlcam_backend.email}",
+    "serviceAccount:${local.service_account_email}",
   ]
 }

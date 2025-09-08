@@ -3,7 +3,7 @@
 
 # Cloud Scheduler Job - Data Collector
 resource "google_cloud_scheduler_job" "collector" {
-  name        = "karlcam-collector-schedule"
+  name        = "karlcam-collector-schedule-${var.environment}"
   description = "Automated KarlCam data collection job"
   schedule    = var.collector_schedule
   time_zone   = "America/Los_Angeles"
@@ -15,19 +15,19 @@ resource "google_cloud_scheduler_job" "collector" {
     uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.karlcam_collector.name}:run"
 
     oauth_token {
-      service_account_email = google_service_account.karlcam_backend.email
+      service_account_email = local.service_account_email
     }
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_cloud_run_v2_job.karlcam_collector
   ]
 }
 
 # Cloud Scheduler Job - Image Labeler
 resource "google_cloud_scheduler_job" "labeler" {
-  name        = "karlcam-labeler-schedule"
+  name        = "karlcam-labeler-schedule-${var.environment}"
   description = "Automated KarlCam image labeling job"
   schedule    = var.labeler_schedule
   time_zone   = "America/Los_Angeles"
@@ -39,12 +39,12 @@ resource "google_cloud_scheduler_job" "labeler" {
     uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.karlcam_labeler.name}:run"
 
     oauth_token {
-      service_account_email = google_service_account.karlcam_backend.email
+      service_account_email = local.service_account_email
     }
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_cloud_run_v2_job.karlcam_labeler
   ]
 }
@@ -53,7 +53,7 @@ resource "google_cloud_scheduler_job" "labeler" {
 resource "google_project_iam_member" "scheduler_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
+  member  = "serviceAccount:${local.service_account_email}"
 }
 
 # Optional: Monitoring for failed scheduled jobs
@@ -95,5 +95,5 @@ resource "google_monitoring_alert_policy" "scheduler_failures" {
 
   notification_channels = []
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [data.terraform_remote_state.shared]
 }

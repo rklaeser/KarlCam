@@ -1,69 +1,25 @@
-# KarlCam Core Infrastructure
-# Cloud SQL, Storage, and IAM configuration
+# KarlCam Environment-Specific Infrastructure
+# Storage and environment-specific database resources
 
-# Cloud SQL Instance
-resource "google_sql_database_instance" "karlcam_db" {
-  name             = "karlcam-db"
-  database_version = "POSTGRES_15"
-  region          = var.region
-  project         = var.project_id
-
-  settings {
-    tier                        = var.sql_instance_tier
-    availability_type          = "ZONAL"
-    disk_type                  = "PD_SSD"
-    disk_size                  = 10
-    disk_autoresize            = true
-    disk_autoresize_limit      = 100
-    deletion_protection_enabled = var.enable_deletion_protection
-
-    backup_configuration {
-      enabled                        = true
-      start_time                     = "03:00"
-      point_in_time_recovery_enabled = true
-      backup_retention_settings {
-        retained_backups = var.backup_retention_days
-      }
-    }
-
-    maintenance_window {
-      day          = 7
-      hour         = 4
-      update_track = "stable"
-    }
-
-    database_flags {
-      name  = "cloudsql.iam_authentication"
-      value = "on"
-    }
-
-    ip_configuration {
-      ipv4_enabled    = true
-      authorized_networks {
-        name  = "allow-all"
-        value = "0.0.0.0/0"
-      }
-    }
-  }
-
-  deletion_protection = var.enable_deletion_protection
-
-  lifecycle {
-    prevent_destroy = true
+# Data source to reference shared SQL instance
+data "terraform_remote_state" "shared" {
+  backend = "local"
+  config = {
+    path = "${path.module}/shared/terraform.tfstate"
   }
 }
 
-# V2 Database
-resource "google_sql_database" "karlcam_v2" {
+# Environment-specific Database
+resource "google_sql_database" "karlcam_db" {
   name     = "karlcam_${var.environment}"
-  instance = google_sql_database_instance.karlcam_db.name
+  instance = data.terraform_remote_state.shared.outputs.sql_instance_name
   project  = var.project_id
 }
 
-# V2 Database User
-resource "google_sql_user" "karlcam_v2_user" {
+# Environment-specific Database User
+resource "google_sql_user" "karlcam_db_user" {
   name     = "karlcam_${var.environment}"
-  instance = google_sql_database_instance.karlcam_db.name
+  instance = data.terraform_remote_state.shared.outputs.sql_instance_name
   password = var.database_password
   project  = var.project_id
 }
@@ -101,54 +57,8 @@ resource "google_storage_bucket" "karlcam_data" {
   }
 }
 
-# Service Account for KarlCam Backend
-resource "google_service_account" "karlcam_backend" {
-  account_id   = "karlcam-backend"
-  display_name = "KarlCam Backend Service Account"
-  description  = "Service account for KarlCam backend services"
-  project      = var.project_id
+# Reference to shared resources
+locals {
+  service_account_email = data.terraform_remote_state.shared.outputs.service_account_email
 }
 
-# IAM Bindings for Backend Service Account
-resource "google_project_iam_member" "karlcam_backend_sql" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
-}
-
-resource "google_project_iam_member" "karlcam_backend_storage" {
-  project = var.project_id
-  role    = "roles/storage.objectAdmin"
-  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
-}
-
-resource "google_project_iam_member" "karlcam_backend_secrets" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
-}
-
-resource "google_project_iam_member" "karlcam_backend_run_invoker" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
-}
-
-# Enable required APIs
-resource "google_project_service" "required_apis" {
-  for_each = toset([
-    "sqladmin.googleapis.com",
-    "run.googleapis.com",
-    "cloudscheduler.googleapis.com",
-    "secretmanager.googleapis.com",
-    "compute.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "containerregistry.googleapis.com",
-    "artifactregistry.googleapis.com"
-  ])
-
-  project = var.project_id
-  service = each.key
-
-  disable_on_destroy = false
-}

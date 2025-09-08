@@ -2,12 +2,16 @@
 
 # Cloud Run API Service
 resource "google_cloud_run_v2_service" "karlcam_api" {
-  name     = "karlcam-api-v2"
+  name     = "karlcam-api-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
-    service_account = google_service_account.karlcam_backend.email
+    service_account = local.service_account_email
+    
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     
     containers {
       image = "gcr.io/${var.project_id}/karlcam-api:${var.image_tag}"
@@ -56,19 +60,23 @@ resource "google_cloud_run_v2_service" "karlcam_api" {
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_secret_manager_secret_version.database_url
   ]
 }
 
 # Cloud Run Frontend Service
 resource "google_cloud_run_v2_service" "karlcam_frontend" {
-  name     = "karlcam-frontend-v2"
+  name     = "karlcam-frontend-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
-    service_account = google_service_account.karlcam_backend.email
+    service_account = local.service_account_email
+    
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     
     containers {
       image = "gcr.io/${var.project_id}/karlcam-frontend:${var.image_tag}"
@@ -76,7 +84,7 @@ resource "google_cloud_run_v2_service" "karlcam_frontend" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "512Mi"
         }
       }
 
@@ -96,17 +104,21 @@ resource "google_cloud_run_v2_service" "karlcam_frontend" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [data.terraform_remote_state.shared]
 }
 
 # Cloud Run Admin Backend Service
 resource "google_cloud_run_v2_service" "karlcam_admin_backend" {
-  name     = "karlcam-admin-backend-v2"
+  name     = "karlcam-admin-backend-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
-    service_account = google_service_account.karlcam_backend.email
+    service_account = local.service_account_email
+    
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     
     containers {
       image = "gcr.io/${var.project_id}/karlcam-admin-backend:${var.image_tag}"
@@ -155,19 +167,23 @@ resource "google_cloud_run_v2_service" "karlcam_admin_backend" {
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_secret_manager_secret_version.database_url
   ]
 }
 
 # Cloud Run Admin Frontend Service
 resource "google_cloud_run_v2_service" "karlcam_admin_frontend" {
-  name     = "karlcam-admin-frontend-v2"
+  name     = "karlcam-admin-frontend-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
-    service_account = google_service_account.karlcam_backend.email
+    service_account = local.service_account_email
+    
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     
     containers {
       image = "gcr.io/${var.project_id}/karlcam-admin-frontend:${var.image_tag}"
@@ -175,7 +191,7 @@ resource "google_cloud_run_v2_service" "karlcam_admin_frontend" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "512Mi"
         }
       }
 
@@ -195,18 +211,18 @@ resource "google_cloud_run_v2_service" "karlcam_admin_frontend" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [data.terraform_remote_state.shared]
 }
 
 # Cloud Run Job - Data Collector
 resource "google_cloud_run_v2_job" "karlcam_collector" {
-  name     = "karlcam-collector-v2"
+  name     = "karlcam-collector-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
     template {
-      service_account = google_service_account.karlcam_backend.email
+      service_account = local.service_account_email
       
       containers {
         image = "gcr.io/${var.project_id}/karlcam-collector:${var.image_tag}"
@@ -244,20 +260,20 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_secret_manager_secret_version.database_url
   ]
 }
 
 # Cloud Run Job - Image Labeler
 resource "google_cloud_run_v2_job" "karlcam_labeler" {
-  name     = "karlcam-labeler-v2"
+  name     = "karlcam-labeler-${var.environment}"
   location = var.region
   project  = var.project_id
 
   template {
     template {
-      service_account = google_service_account.karlcam_backend.email
+      service_account = local.service_account_email
       
       containers {
         image = "gcr.io/${var.project_id}/karlcam-labeler:${var.image_tag}"
@@ -305,7 +321,7 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
   }
 
   depends_on = [
-    google_project_service.required_apis,
+    data.terraform_remote_state.shared,
     google_secret_manager_secret_version.database_url,
     google_secret_manager_secret_version.gemini_api_key
   ]

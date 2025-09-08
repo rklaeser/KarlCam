@@ -23,13 +23,7 @@ max_admin_instances    = 3
 collector_schedule = "0 */4 * * *"  # Every 4 hours
 labeler_schedule   = "30 2 * * *"   # Daily at 2:30 AM
 
-# Longer backup retention for production
-backup_retention_days = 14
-
-# Enable deletion protection for production safety
-enable_deletion_protection = true
 
 # Production-specific settings
-sql_instance_tier = "db-n1-standard-1"
 auto_scaling_min_instances = 1
 auto_scaling_max_instances = 10

@@ -65,23 +65,6 @@ variable "environment" {
   }
 }
 
-variable "enable_deletion_protection" {
-  description = "Enable deletion protection for critical resources"
-  type        = bool
-  default     = true
-}
-
-variable "backup_retention_days" {
-  description = "Number of days to retain database backups"
-  type        = number
-  default     = 7
-  
-  validation {
-    condition     = var.backup_retention_days >= 1 && var.backup_retention_days <= 365
-    error_message = "Backup retention days must be between 1 and 365."
-  }
-}
-
 variable "max_api_instances" {
   description = "Maximum number of API service instances"
   type        = number
@@ -110,12 +93,6 @@ variable "labeler_schedule" {
   description = "Cron schedule for the labeler job"
   type        = string
   default     = "30 2 * * *"   # Daily at 2:30 AM
-}
-
-variable "sql_instance_tier" {
-  description = "Cloud SQL instance tier"
-  type        = string
-  default     = "db-f1-micro"
 }
 
 variable "auto_scaling_min_instances" {

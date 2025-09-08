@@ -3,17 +3,12 @@
 # Database Connection Info
 output "database_instance_name" {
   description = "Cloud SQL instance name"
-  value       = google_sql_database_instance.karlcam_db.name
+  value       = data.terraform_remote_state.shared.outputs.sql_instance_name
 }
 
 output "database_connection_name" {
   description = "Cloud SQL connection name for Cloud Run services"
-  value       = google_sql_database_instance.karlcam_db.connection_name
-}
-
-output "database_ip_address" {
-  description = "Public IP address of the Cloud SQL instance"
-  value       = google_sql_database_instance.karlcam_db.public_ip_address
+  value       = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
 }
 
 # Storage
@@ -30,7 +25,7 @@ output "bucket_url" {
 # Service Account
 output "backend_service_account_email" {
   description = "Email of the backend service account"
-  value       = google_service_account.karlcam_backend.email
+  value       = local.service_account_email
 }
 
 # Cloud Run Services URLs
@@ -127,11 +122,11 @@ output "api_logs_command" {
 # Database Connection String (for local development)
 output "local_database_url" {
   description = "Database URL for local development (requires Cloud SQL proxy)"
-  value       = "postgresql://${google_sql_user.karlcam_v2_user.name}:PASSWORD@localhost:5432/${google_sql_database.karlcam_v2.name}"
+  value       = "postgresql://${google_sql_user.karlcam_db_user.name}:PASSWORD@localhost:5432/${google_sql_database.karlcam_db.name}"
   sensitive   = false
 }
 
 output "cloud_sql_proxy_command" {
   description = "Command to start Cloud SQL proxy for local development"
-  value       = "cloud-sql-proxy ${google_sql_database_instance.karlcam_db.connection_name} --port 5432 --gcloud-auth"
+  value       = "cloud-sql-proxy ${data.terraform_remote_state.shared.outputs.sql_instance_connection_name} --port 5432 --gcloud-auth"
 }

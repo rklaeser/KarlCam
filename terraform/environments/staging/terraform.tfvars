@@ -23,13 +23,7 @@ max_admin_instances    = 2
 collector_schedule = "0 */2 * * *"  # Every 2 hours
 labeler_schedule   = "15 1 * * *"   # Daily at 1:15 AM
 
-# Shorter backup retention for staging
-backup_retention_days = 3
-
-# Disable deletion protection for easier testing
-enable_deletion_protection = false
 
 # Staging-specific settings
-sql_instance_tier = "db-f1-micro"
 auto_scaling_min_instances = 0
 auto_scaling_max_instances = 3
