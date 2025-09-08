@@ -138,3 +138,31 @@ resource "google_project_service" "required_apis" {
   disable_on_destroy = false
 }
 
+# Environment-specific Databases
+resource "google_sql_database" "karlcam_staging" {
+  name     = "karlcam_staging"
+  instance = google_sql_database_instance.karlcam_db.name
+  project  = var.project_id
+}
+
+resource "google_sql_database" "karlcam_production" {
+  name     = "karlcam_production"
+  instance = google_sql_database_instance.karlcam_db.name
+  project  = var.project_id
+}
+
+# Environment-specific Database Users
+resource "google_sql_user" "karlcam_staging" {
+  name     = "karlcam_staging"
+  instance = google_sql_database_instance.karlcam_db.name
+  password = var.staging_database_password
+  project  = var.project_id
+}
+
+resource "google_sql_user" "karlcam_production" {
+  name     = "karlcam_production"
+  instance = google_sql_database_instance.karlcam_db.name
+  password = var.production_database_password
+  project  = var.project_id
+}
+

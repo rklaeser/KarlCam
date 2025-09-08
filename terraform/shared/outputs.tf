@@ -19,3 +19,13 @@ output "project_apis" {
   description = "Enabled project APIs"
   value       = google_project_service.required_apis
 }
+
+output "staging_database_name" {
+  description = "Name of the staging database"
+  value       = google_sql_database.karlcam_staging.name
+}
+
+output "production_database_name" {
+  description = "Name of the production database" 
+  value       = google_sql_database.karlcam_production.name
+}

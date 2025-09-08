@@ -28,3 +28,15 @@ variable "backup_retention_days" {
   type        = number
   default     = 7
 }
+
+variable "staging_database_password" {
+  description = "Password for the staging database user"
+  type        = string
+  sensitive   = true
+}
+
+variable "production_database_password" {
+  description = "Password for the production database user"  
+  type        = string
+  sensitive   = true
+}

@@ -38,20 +38,7 @@ data "terraform_remote_state" "shared" {
   }
 }
 
-# Environment-specific Database
-resource "google_sql_database" "karlcam_db" {
-  name     = "karlcam_${var.environment}"
-  instance = data.terraform_remote_state.shared.outputs.sql_instance_name
-  project  = var.project_id
-}
-
-# Environment-specific Database User
-resource "google_sql_user" "karlcam_db_user" {
-  name     = "karlcam_${var.environment}"
-  instance = data.terraform_remote_state.shared.outputs.sql_instance_name
-  password = var.database_password
-  project  = var.project_id
-}
+# Database resources are now managed in shared terraform
 
 # Cloud Storage Buckets
 resource "google_storage_bucket" "karlcam_data" {
