@@ -221,10 +221,10 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
   project  = var.project_id
 
   template {
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     template {
-      annotations = {
-        "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
-      }
       service_account = local.service_account_email
       
       containers {
@@ -275,10 +275,10 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
   project  = var.project_id
 
   template {
+    annotations = {
+      "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
+    }
     template {
-      annotations = {
-        "run.googleapis.com/cloudsql-instances" = data.terraform_remote_state.shared.outputs.sql_instance_connection_name
-      }
       service_account = local.service_account_email
       
       containers {
