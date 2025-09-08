@@ -108,6 +108,12 @@ resource "google_project_iam_member" "karlcam_backend_logging" {
   member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
 }
 
+resource "google_project_iam_member" "karlcam_backend_artifact_registry" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.karlcam_backend.email}"
+}
+
 # Enable required APIs
 resource "google_project_service" "required_apis" {
   for_each = toset([
