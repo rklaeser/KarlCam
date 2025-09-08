@@ -169,9 +169,8 @@ steps:
       - |
         echo "🚀 Deploying to ${_ENVIRONMENT} environment using terraform service account"
         
-        # Authenticate with terraform service account
-        gcloud auth activate-service-account --key-file=/dev/null
-        gcloud config set auth/impersonate_service_account karlcam-terraform-deploy@karlcam.iam.gserviceaccount.com
+        # Configure impersonation for terraform service account
+        export CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT=karlcam-terraform-deploy@karlcam.iam.gserviceaccount.com
         
         # Initialize Terraform with remote backend
         cd terraform
