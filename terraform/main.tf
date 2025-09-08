@@ -62,3 +62,18 @@ locals {
   service_account_email = data.terraform_remote_state.shared.outputs.service_account_email
 }
 
+# Scheduler Module (Production Only)
+module "scheduler" {
+  count  = var.environment == "production" ? 1 : 0
+  source = "./modules/scheduler"
+  
+  environment             = var.environment
+  project_id              = var.project_id
+  region                  = var.region
+  collector_schedule      = var.collector_schedule
+  labeler_schedule        = var.labeler_schedule
+  collector_job_name      = google_cloud_run_v2_job.karlcam_collector.name
+  labeler_job_name        = google_cloud_run_v2_job.karlcam_labeler.name
+  service_account_email   = local.service_account_email
+}
+

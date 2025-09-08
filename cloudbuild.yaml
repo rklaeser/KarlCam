@@ -187,6 +187,37 @@ steps:
         
         echo "✅ Deployment to ${_ENVIRONMENT} completed successfully!"
         
+        # Populate staging with fresh data
+        if [ "${_ENVIRONMENT}" = "staging" ]; then
+          echo ""
+          echo "🔄 Populating staging with fresh data..."
+          
+          # Update timestamps on most recent images to make them "current"
+          echo "📅 Updating image timestamps for immediate visibility..."
+          gcloud sql databases execute-sql karlcam-db \
+            --project=${_PROJECT_ID} \
+            --sql="UPDATE image_collections SET timestamp = NOW() - INTERVAL '5 minutes' WHERE id IN (SELECT DISTINCT ON (webcam_id) id FROM image_collections ORDER BY webcam_id, timestamp DESC);" \
+            || echo "⚠️  Timestamp update failed, continuing anyway"
+          
+          # Run collector job to get new data
+          echo "🏃 Running collector job..."
+          gcloud run jobs execute karlcam-collector-staging \
+            --region=${_REGION} \
+            --project=${_PROJECT_ID} \
+            --wait \
+            || echo "⚠️  Collector job failed, continuing anyway"
+          
+          # Run labeler job to process the collected data
+          echo "🏷️  Running labeler job..."
+          gcloud run jobs execute karlcam-labeler-staging \
+            --region=${_REGION} \
+            --project=${_PROJECT_ID} \
+            --wait \
+            || echo "⚠️  Labeler job failed, continuing anyway"
+          
+          echo "✅ Staging data population completed!"
+        fi
+        
         # Output useful information
         echo ""
         echo "📊 Deployment Summary:"

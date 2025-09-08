@@ -1,4 +1,4 @@
-# KarlCam Cloud Scheduler Configuration
+# KarlCam Scheduler Module
 # Automated job scheduling for data collection and processing
 
 # Cloud Scheduler Job - Data Collector
@@ -12,17 +12,12 @@ resource "google_cloud_scheduler_job" "collector" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.karlcam_collector.name}:run"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${var.collector_job_name}:run"
 
     oauth_token {
-      service_account_email = local.service_account_email
+      service_account_email = var.service_account_email
     }
   }
-
-  depends_on = [
-    data.terraform_remote_state.shared,
-    google_cloud_run_v2_job.karlcam_collector
-  ]
 }
 
 # Cloud Scheduler Job - Image Labeler
@@ -36,30 +31,24 @@ resource "google_cloud_scheduler_job" "labeler" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.karlcam_labeler.name}:run"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${var.labeler_job_name}:run"
 
     oauth_token {
-      service_account_email = local.service_account_email
+      service_account_email = var.service_account_email
     }
   }
-
-  depends_on = [
-    data.terraform_remote_state.shared,
-    google_cloud_run_v2_job.karlcam_labeler
-  ]
 }
 
 # Additional IAM permission for Cloud Scheduler
 resource "google_project_iam_member" "scheduler_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
-  member  = "serviceAccount:${local.service_account_email}"
+  member  = "serviceAccount:${var.service_account_email}"
 }
 
 # Optional: Monitoring for failed scheduled jobs
 resource "google_monitoring_alert_policy" "scheduler_failures" {
-  count        = var.environment == "prod" ? 1 : 0
-  display_name = "KarlCam Scheduler Job Failures"
+  display_name = "KarlCam Scheduler Job Failures - ${var.environment}"
   combiner     = "OR"
   project      = var.project_id
 
@@ -94,6 +83,4 @@ resource "google_monitoring_alert_policy" "scheduler_failures" {
   }
 
   notification_channels = []
-
-  depends_on = [data.terraform_remote_state.shared]
 }

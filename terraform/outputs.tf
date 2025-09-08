@@ -60,6 +60,17 @@ output "labeler_job_name" {
   value       = google_cloud_run_v2_job.karlcam_labeler.name
 }
 
+# Scheduler outputs (production only)
+output "collector_schedule_name" {
+  description = "Name of the collector scheduler job (production only)"
+  value       = var.environment == "production" ? module.scheduler[0].collector_job_schedule_name : "No scheduler in staging"
+}
+
+output "labeler_schedule_name" {
+  description = "Name of the labeler scheduler job (production only)"
+  value       = var.environment == "production" ? module.scheduler[0].labeler_job_schedule_name : "No scheduler in staging"
+}
+
 # Domain Mappings (when configured)
 output "api_domain" {
   description = "API service domain"
