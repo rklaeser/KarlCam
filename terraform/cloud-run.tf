@@ -228,7 +228,7 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
         }
         
         env {
-          name  = "BUCKET_NAME"
+          name  = "OUTPUT_BUCKET"
           value = var.bucket_name
         }
         
