@@ -16,15 +16,15 @@ resource "google_secret_manager_secret" "database_url" {
   }
 }
 
-# Database URL Secret Version
-resource "google_secret_manager_secret_version" "database_url" {
-  secret      = google_secret_manager_secret.database_url.id
-  secret_data = "postgresql://karlcam_${var.environment}:${var.database_password}@/karlcam_${var.environment}?host=/cloudsql/${data.terraform_remote_state.shared.outputs.sql_instance_connection_name}"
-
-  depends_on = [
-    data.terraform_remote_state.shared
-  ]
-}
+# Database URL Secret Version - Managed externally
+# resource "google_secret_manager_secret_version" "database_url" {
+#   secret      = google_secret_manager_secret.database_url.id
+#   secret_data = "postgresql://karlcam_${var.environment}:${var.database_password}@/karlcam_${var.environment}?host=/cloudsql/${data.terraform_remote_state.shared.outputs.sql_instance_connection_name}"
+#
+#   depends_on = [
+#     data.terraform_remote_state.shared
+#   ]
+# }
 
 # Secret for Gemini API Key
 resource "google_secret_manager_secret" "gemini_api_key" {
@@ -42,11 +42,11 @@ resource "google_secret_manager_secret" "gemini_api_key" {
   }
 }
 
-# Gemini API Key Secret Version
-resource "google_secret_manager_secret_version" "gemini_api_key" {
-  secret      = google_secret_manager_secret.gemini_api_key.id
-  secret_data = var.gemini_api_key
-}
+# Gemini API Key Secret Version - Managed externally
+# resource "google_secret_manager_secret_version" "gemini_api_key" {
+#   secret      = google_secret_manager_secret.gemini_api_key.id
+#   secret_data = var.gemini_api_key
+# }
 
 # Optional: Secret for Database Password (separate from connection string)
 resource "google_secret_manager_secret" "database_password" {
@@ -64,11 +64,11 @@ resource "google_secret_manager_secret" "database_password" {
   }
 }
 
-# Database Password Secret Version
-resource "google_secret_manager_secret_version" "database_password" {
-  secret      = google_secret_manager_secret.database_password.id
-  secret_data = var.database_password
-}
+# Database Password Secret Version - Managed externally
+# resource "google_secret_manager_secret_version" "database_password" {
+#   secret      = google_secret_manager_secret.database_password.id
+#   secret_data = var.database_password
+# }
 
 # IAM binding for secrets access
 resource "google_secret_manager_secret_iam_binding" "database_url_access" {

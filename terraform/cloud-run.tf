@@ -60,8 +60,7 @@ resource "google_cloud_run_v2_service" "karlcam_api" {
   }
 
   depends_on = [
-    data.terraform_remote_state.shared,
-    google_secret_manager_secret_version.database_url
+    data.terraform_remote_state.shared
   ]
 }
 
@@ -163,8 +162,7 @@ resource "google_cloud_run_v2_service" "karlcam_admin_backend" {
   }
 
   depends_on = [
-    data.terraform_remote_state.shared,
-    google_secret_manager_secret_version.database_url
+    data.terraform_remote_state.shared
   ]
 }
 
@@ -252,8 +250,7 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
   }
 
   depends_on = [
-    data.terraform_remote_state.shared,
-    google_secret_manager_secret_version.database_url
+    data.terraform_remote_state.shared
   ]
 }
 
@@ -313,9 +310,7 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
   }
 
   depends_on = [
-    data.terraform_remote_state.shared,
-    google_secret_manager_secret_version.database_url,
-    google_secret_manager_secret_version.gemini_api_key
+    data.terraform_remote_state.shared
   ]
 }
 
