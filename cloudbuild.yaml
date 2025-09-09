@@ -69,25 +69,12 @@ steps:
       - 'admin/backend/infra/Dockerfile.prod'
       - '.'
 
-  # Build frontend with npm - conditional API URL based on branch
-  - name: 'node:18-alpine'
-    id: 'npm-frontend'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        cd web/frontend
-        npm ci
-        if [ "${BRANCH_NAME}" = "staging" ]; then
-          REACT_APP_API_BASE_URL=https://api.staging.karl.cam npm run build
-        else
-          REACT_APP_API_BASE_URL=https://api.karl.cam npm run build
-        fi
-
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-frontend'
     args:
       - 'build'
+      - '--build-arg'
+      - 'REACT_APP_ENVIRONMENT=${BRANCH_NAME}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
       - '-t'
@@ -97,27 +84,13 @@ steps:
       - '-f'
       - 'web/frontend/infra/Dockerfile.prod'
       - '.'
-    waitFor: ['npm-frontend']
-
-  # Build admin frontend with npm - conditional API URL based on branch
-  - name: 'node:18-alpine'
-    id: 'npm-admin-frontend'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        cd admin/frontend
-        npm ci
-        if [ "${BRANCH_NAME}" = "staging" ]; then
-          REACT_APP_API_BASE_URL=https://admin-api.staging.karl.cam npm run build
-        else
-          REACT_APP_API_BASE_URL=https://admin-api.karl.cam npm run build
-        fi
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-admin-frontend'
     args:
       - 'build'
+      - '--build-arg'
+      - 'REACT_APP_ENVIRONMENT=${BRANCH_NAME}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
       - '-t'
@@ -127,7 +100,6 @@ steps:
       - '-f'
       - 'admin/frontend/infra/Dockerfile.prod'
       - '.'
-    waitFor: ['npm-admin-frontend']
 
   # Push all images
   - name: 'gcr.io/cloud-builders/docker'
