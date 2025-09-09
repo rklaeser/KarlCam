@@ -12,7 +12,7 @@ admin_subdomain     = "admin"
 admin_api_subdomain = "admin-api"
 
 # Storage
-bucket_name = "karlcam-v2-data"
+bucket_name = "karlcam-production-data"
 
 # Resource Limits (Higher for production load)
 max_api_instances      = 10
