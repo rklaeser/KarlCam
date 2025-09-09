@@ -203,3 +203,5 @@ Examples from recent commits:
 - `fix: trim back cloud permissions`
 
 Keep commit messages concise and descriptive. Focus on what was changed, not why.
+
+**IMPORTANT**: Do not include any mention of "Claude Code", "Generated with Claude Code", or similar AI attribution in commit messages. Keep commits clean and professional.
