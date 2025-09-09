@@ -217,6 +217,11 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
       containers {
         image = "gcr.io/${var.project_id}/karlcam-collector:${var.image_tag}"
         
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+        
         env {
           name  = "PROJECT_ID"
           value = var.project_id
@@ -244,6 +249,13 @@ resource "google_cloud_run_v2_job" "karlcam_collector" {
           }
         }
       }
+      
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [data.terraform_remote_state.shared.outputs.sql_instance_connection_name]
+        }
+      }
 
       max_retries = 1
     }
@@ -266,6 +278,11 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
       
       containers {
         image = "gcr.io/${var.project_id}/karlcam-labeler:${var.image_tag}"
+        
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
         
         env {
           name  = "USE_CLOUD_STORAGE"
@@ -302,6 +319,13 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
             cpu    = "1"
             memory = "2Gi"
           }
+        }
+      }
+      
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [data.terraform_remote_state.shared.outputs.sql_instance_connection_name]
         }
       }
 
