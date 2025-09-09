@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import CameraTable from '../components/CameraTable';
 import Sidebar from '../components/Sidebar';
 
@@ -21,8 +21,6 @@ const TableView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const API_BASE = process.env.NODE_ENV === 'production' ? 'https://api.karl.cam' : 'http://localhost:8002';
-
   useEffect(() => {
     loadData();
     // Refresh data every 5 minutes
@@ -33,7 +31,7 @@ const TableView: React.FC = () => {
   const loadData = async () => {
     try {
       setError(null);
-      const camerasRes = await axios.get(`${API_BASE}/api/public/cameras`);
+      const camerasRes = await api.get('/api/public/cameras');
       setCameras(camerasRes.data.cameras || []);
       setLoading(false);
     } catch (err) {
