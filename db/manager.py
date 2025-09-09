@@ -417,3 +417,36 @@ class DatabaseManager:
             'fog_distribution': distribution,
             'period_days': days
         }
+    
+    # ============= System Status Operations =============
+    
+    def update_system_status(self, status_key: str, status_value: int, updated_by: str = "system") -> bool:
+        """Update system status value"""
+        try:
+            query = """
+                UPDATE system_status 
+                SET status_value = %s, 
+                    updated_at = NOW(), 
+                    updated_by = %s 
+                WHERE status_key = %s
+            """
+            execute_query(query, (status_value, updated_by, status_key))
+            logger.info(f"Updated system status {status_key} = {status_value} by {updated_by}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update system status {status_key}: {e}")
+            return False
+    
+    def get_system_status(self, status_key: str) -> Optional[Dict]:
+        """Get current system status"""
+        try:
+            query = """
+                SELECT status_key, status_value, description, updated_at, updated_by
+                FROM system_status 
+                WHERE status_key = %s
+            """
+            result = execute_query(query, (status_key,), fetch_one=True, cursor_factory=RealDictCursor)
+            return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Failed to get system status {status_key}: {e}")
+            return None

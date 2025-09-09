@@ -220,9 +220,9 @@ steps:
 # Secrets configuration
 availableSecrets:
   secretManager:
-    - versionName: projects/${_PROJECT_ID}/secrets/database-password/versions/latest
+    - versionName: projects/${_PROJECT_ID}/secrets/karlcam-db-password-${_ENVIRONMENT}/versions/latest
       env: 'DATABASE_PASSWORD'
-    - versionName: projects/${_PROJECT_ID}/secrets/gemini-api-key/versions/latest
+    - versionName: projects/${_PROJECT_ID}/secrets/gemini-api-key-${_ENVIRONMENT}/versions/latest
       env: 'GEMINI_API_KEY'
 
 images:
