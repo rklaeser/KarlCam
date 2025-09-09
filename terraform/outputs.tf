@@ -133,7 +133,7 @@ output "api_logs_command" {
 # Database Connection String (for local development)
 output "local_database_url" {
   description = "Database URL for local development (requires Cloud SQL proxy)"
-  value       = "postgresql://${google_sql_user.karlcam_db_user.name}:PASSWORD@localhost:5432/${google_sql_database.karlcam_db.name}"
+  value       = "postgresql://karlcam_${var.environment}:PASSWORD@localhost:5432/karlcam_${var.environment}"
   sensitive   = false
 }
 

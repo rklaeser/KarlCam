@@ -19,12 +19,10 @@ resource "google_secret_manager_secret" "database_url" {
 # Database URL Secret Version
 resource "google_secret_manager_secret_version" "database_url" {
   secret      = google_secret_manager_secret.database_url.id
-  secret_data = "postgresql://${google_sql_user.karlcam_db_user.name}:${var.database_password}@/${google_sql_database.karlcam_db.name}?host=/cloudsql/${data.terraform_remote_state.shared.outputs.sql_instance_connection_name}"
+  secret_data = "postgresql://karlcam_${var.environment}:${var.database_password}@/karlcam_${var.environment}?host=/cloudsql/${data.terraform_remote_state.shared.outputs.sql_instance_connection_name}"
 
   depends_on = [
-    data.terraform_remote_state.shared,
-    google_sql_database.karlcam_db,
-    google_sql_user.karlcam_db_user
+    data.terraform_remote_state.shared
   ]
 }
 
