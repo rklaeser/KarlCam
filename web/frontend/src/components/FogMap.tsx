@@ -305,7 +305,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
                           
                           // Try to fallback to latest collected image
                           console.log('Attempting fallback for camera:', webcam.id);
-                          fetch(`http://localhost:8002/api/public/cameras/${webcam.id}/latest-image`)
+                          fetch(`${apiBase}/api/public/cameras/${webcam.id}/latest-image`)
                             .then(response => {
                               console.log('Fallback response status:', response.status);
                               if (!response.ok) {
@@ -317,7 +317,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
                               console.log('Fallback to collected image:', data);
                               // Check if element is still in DOM before updating
                               if (imgElement && imgElement.parentNode) {
-                                const fullImageUrl = `http://localhost:8002${data.image_url}`;
+                                const fullImageUrl = `${apiBase}${data.image_url}`;
                                 console.log('Setting fallback image URL:', fullImageUrl);
                                 imgElement.src = fullImageUrl;
                                 imgElement.title = `Latest collected image from ${new Date(data.timestamp).toLocaleString()}`;
