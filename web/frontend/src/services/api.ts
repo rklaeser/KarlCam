@@ -13,6 +13,7 @@ const getApiUrl = (environment: string | undefined): string => {
 };
 
 const BASE_URL = getApiUrl(process.env.REACT_APP_ENVIRONMENT);
+console.log('Environment:', process.env.REACT_APP_ENVIRONMENT, 'API URL:', BASE_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,

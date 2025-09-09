@@ -186,3 +186,20 @@ The project includes MCP (Model Context Protocol) tools for:
 2. Compare confidence scores across different labelers
 3. Review `reasoning` field for explanation quality
 4. Check label distribution for anomalies
+
+## Commit Message Format
+
+All commits must start with either `fix:` or `feat:` followed by a concise description:
+
+- `fix:` - Bug fixes, corrections, or improvements to existing functionality
+- `feat:` - New features or significant additions
+
+Examples from recent commits:
+- `fix: api env var logic`
+- `fix: use OUTPUT_BUCKET env var for collector job`
+- `fix: collector sql`
+- `feat: move db to shared`
+- `fix: remove secrets`
+- `fix: trim back cloud permissions`
+
+Keep commit messages concise and descriptive. Focus on what was changed, not why.
