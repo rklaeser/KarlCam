@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.karl.cam' : 'http://localhost:8002';
+const getApiUrl = (environment: string | undefined): string => {
+  switch(environment) {
+    case 'staging':
+      return 'https://api.staging.karl.cam';
+    case 'production':
+      return 'https://api.karl.cam';
+    case 'development':
+    default:
+      return 'http://localhost:8002';
+  }
+};
+
+const BASE_URL = getApiUrl(process.env.REACT_APP_ENVIRONMENT);
 
 const api = axios.create({
   baseURL: BASE_URL,

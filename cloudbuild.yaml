@@ -79,9 +79,9 @@ steps:
         cd web/frontend
         npm ci
         if [ "${BRANCH_NAME}" = "staging" ]; then
-          REACT_APP_API_BASE_URL=https://api.staging.karl.cam npm run build
+          REACT_APP_ENVIRONMENT=staging npm run build
         else
-          REACT_APP_API_BASE_URL=https://api.karl.cam npm run build
+          REACT_APP_ENVIRONMENT=production npm run build
         fi
 
   - name: 'gcr.io/cloud-builders/docker'
@@ -109,9 +109,9 @@ steps:
         cd admin/frontend
         npm ci
         if [ "${BRANCH_NAME}" = "staging" ]; then
-          REACT_APP_API_BASE_URL=https://admin-api.staging.karl.cam npm run build
+          REACT_APP_ENVIRONMENT=staging npm run build
         else
-          REACT_APP_API_BASE_URL=https://admin-api.karl.cam npm run build
+          REACT_APP_ENVIRONMENT=production npm run build
         fi
 
   - name: 'gcr.io/cloud-builders/docker'
