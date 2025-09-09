@@ -27,6 +27,44 @@ from labelers import create_labeler
 
 BUCKET_NAME = os.getenv("OUTPUT_BUCKET", "karlcam-fog-data")
 
+def update_karlcam_mode(db: DatabaseManager):
+    """Update KarlCam mode based on current time (Pacific Time)"""
+    try:
+        import pytz
+        
+        # Get current time in Pacific timezone
+        pacific_tz = pytz.timezone('America/Los_Angeles')
+        current_time = datetime.now(pacific_tz)
+        current_hour = current_time.hour
+        
+        logger.info(f"Current Pacific time: {current_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        
+        # Determine mode based on time
+        # Night mode (sleeping): 7 PM (19:00) to 6 AM (06:00)
+        # Business mode: 6 AM (06:00) to 7 PM (19:00)
+        if 19 <= current_hour or current_hour < 6:
+            new_mode = 1  # Night mode (sleeping)
+            mode_name = "night mode"
+        else:
+            new_mode = 0  # Business as usual
+            mode_name = "business mode"
+        
+        # Check current mode to avoid unnecessary updates
+        current_status = db.get_system_status("karlcam_mode")
+        if current_status and current_status.get("status_value") == new_mode:
+            logger.info(f"KarlCam already in {mode_name} (mode={new_mode})")
+            return
+        
+        # Update mode
+        success = db.update_system_status("karlcam_mode", new_mode, "labeler_scheduler")
+        if success:
+            logger.info(f"✅ Updated KarlCam to {mode_name} (mode={new_mode})")
+        else:
+            logger.error(f"❌ Failed to update KarlCam mode to {new_mode}")
+            
+    except Exception as e:
+        logger.error(f"Error updating KarlCam mode: {e}")
+
 def load_image_from_cloud_storage(filename: str) -> Image.Image:
     """Load image from Cloud Storage"""
     try:
@@ -79,6 +117,9 @@ def label_images(labeler_types: List[str] = None):
     
     # Initialize database
     db = DatabaseManager()
+    
+    # Update KarlCam mode based on current time
+    update_karlcam_mode(db)
     
     # Get unlabeled images
     unlabeled_images = get_unlabeled_images(db)
