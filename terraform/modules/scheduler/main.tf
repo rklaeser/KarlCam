@@ -46,41 +46,5 @@ resource "google_project_iam_member" "scheduler_run_invoker" {
   member  = "serviceAccount:${var.service_account_email}"
 }
 
-# Optional: Monitoring for failed scheduled jobs
-resource "google_monitoring_alert_policy" "scheduler_failures" {
-  display_name = "KarlCam Scheduler Job Failures - ${var.environment}"
-  combiner     = "OR"
-  project      = var.project_id
-
-  conditions {
-    display_name = "Collector job failures"
-    condition_threshold {
-      filter         = "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=\"${google_cloud_scheduler_job.collector.name}\""
-      comparison     = "COMPARISON_GT"
-      threshold_value = 0
-      duration       = "300s"
-
-      aggregations {
-        alignment_period   = "300s"
-        per_series_aligner = "ALIGN_RATE"
-      }
-    }
-  }
-
-  conditions {
-    display_name = "Labeler job failures"
-    condition_threshold {
-      filter         = "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=\"${google_cloud_scheduler_job.labeler.name}\""
-      comparison     = "COMPARISON_GT"
-      threshold_value = 0
-      duration       = "300s"
-
-      aggregations {
-        alignment_period   = "300s"
-        per_series_aligner = "ALIGN_RATE"
-      }
-    }
-  }
-
-  notification_channels = []
-}
+# Optional: Monitoring for failed scheduled jobs (removed for now)
+# TODO: Fix alert policy metric filters and re-enable monitoring
