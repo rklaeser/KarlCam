@@ -77,9 +77,9 @@ const MeasuringFog: React.FC = () => {
           
           <div className="prose prose-lg max-w-none text-gray-600 mb-8">
             <p className="leading-relaxed mb-4">
-              Even on the foggiest day of this historically cold San Francisco summer the familiar sound of Waymos can be heard. 
+              Even on the foggiest day of this historically cold San Francisco summer the familiar sound of Waymos can be heard buzzing along the streets. 
               How do they manage to avoid running over pedestrians obscured by the fog? <a href="https://waymo.com/blog/2021/11/a-fog-blog" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">With radar sensors that can see through it</a>. 
-              Cameras can't do that and it's no small controversy that Tesla self driving has rejected lidar in favor of cameras.
+              Cameras can't do that and it's no small controversy that Tesla self driving has rejected radar in favor of cameras (which are cheaper). 
             </p>
             
             <div className="my-6 flex justify-center">
@@ -95,10 +95,8 @@ const MeasuringFog: React.FC = () => {
             </p>
             
             <p className="leading-relaxed mb-4">
-            But cameras are cheaper and the webcams I needed for karlcam (<a href="/why-karlcam" className="text-blue-600 hover:text-blue-800 underline">See why karlcam for more details</a>) are accessible for free on the internet.
-            Similar to Tesla, cameras are more convenient, in KarlCam's case because there are freely accessible public webcams on the internet. 
-              And also similar to Tesla, the state of the art uses lasers. Unlike Tesla's self driving problem, webcam images tend to be in 
-              fixed positions and there is no serious time pressure.
+            Tesla thinks they can make up the difference with software. This project attempts something similar though the stakes are lower 
+            and the problem easier because the cameras aren't in motion.
             </p>
             
             <div className="bg-gray-50 border-l-4 border-gray-500 p-4 mb-6">
