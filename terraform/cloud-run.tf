@@ -360,4 +360,9 @@ resource "google_cloud_run_service_iam_binding" "admin_frontend_public" {
   members  = ["allUsers"]
 }
 
-# Admin backend remains private (no public IAM binding)
+resource "google_cloud_run_service_iam_binding" "admin_backend_public" {
+  location = google_cloud_run_v2_service.karlcam_admin_backend.location
+  service  = google_cloud_run_v2_service.karlcam_admin_backend.name
+  role     = "roles/run.invoker"
+  members  = ["allUsers"]
+}

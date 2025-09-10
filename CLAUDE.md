@@ -87,11 +87,11 @@ npm run build
 gcloud builds submit --config=cloudbuild.yaml
 
 # Manual deployment of individual services
-gcloud run deploy karlcam-api-v2 --image gcr.io/karlcam/karlcam-api:latest --region us-central1
-gcloud run jobs update karlcam-collector-v2 --image gcr.io/karlcam/karlcam-collector:latest --region us-central1
+gcloud run deploy karlcam-api-production --image gcr.io/karlcam/karlcam-api:latest --region us-central1
+gcloud run jobs update karlcam-collector-production --image gcr.io/karlcam/karlcam-collector:latest --region us-central1
 
 # Execute collector job manually
-gcloud run jobs execute karlcam-collector-v2 --region=us-central1
+gcloud run jobs execute karlcam-collector-production --region=us-central1
 ```
 
 ### Infrastructure Management
@@ -103,8 +103,8 @@ terraform plan
 terraform apply
 
 # View service logs
-gcloud run logs read karlcam-api-v2 --region=us-central1
-gcloud run jobs executions logs karlcam-collector-v2 --region=us-central1
+gcloud run logs read karlcam-api-production --region=us-central1
+gcloud run jobs executions logs karlcam-collector-production --region=us-central1
 ```
 
 ## Environment Variables
@@ -171,11 +171,8 @@ If the proxy is already running, you can skip `make start-sql` and connect direc
 # Connect to staging database
 psql "postgresql://karlcam_staging:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_staging"
 
-# Connect to production database (empty database)
+# Connect to production database
 psql "postgresql://karlcam_production:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_production"
-
-# Connect to v2 database (production data)
-psql "postgresql://karlcam_v2:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_v2"
 ```
 
 ### Database Details
@@ -187,11 +184,7 @@ All databases are hosted on Cloud SQL instance `karlcam:us-central1:karlcam-db` 
 - 12 webcams configured
 
 #### Production Database: `karlcam_production`  
-- Currently empty (no tables)
-- Reserved for future use
-
-#### V2 Database: `karlcam_v2`
-- Contains current production data
+- Contains production data
 - 12 webcams configured
 
 ## Common Tasks
@@ -202,7 +195,7 @@ All databases are hosted on Cloud SQL instance `karlcam:us-central1:karlcam-db` 
 3. Webcam will be included in next collection cycle
 
 ### Debugging Collection Issues
-1. Check Cloud Run Jobs logs: `gcloud run jobs executions logs karlcam-collector-v2`
+1. Check Cloud Run Jobs logs: `gcloud run jobs executions logs karlcam-collector-production`
 2. Query `collection_runs` table for summary statistics
 3. Check `image_collections` for successful captures
 4. Verify Cloud Storage permissions and bucket access
@@ -212,6 +205,39 @@ All databases are hosted on Cloud SQL instance `karlcam:us-central1:karlcam-db` 
 2. Compare confidence scores across different labelers
 3. Review `reasoning` field for explanation quality
 4. Check label distribution for anomalies
+
+### Cloud Storage Investigation
+
+#### List all KarlCam buckets
+```bash
+gcloud storage buckets list --project=karlcam --format="table(name,location,storageClass,timeCreated)" | grep karlcam
+```
+
+#### Check bucket sizes and contents
+```bash
+# Get bucket sizes
+gsutil du -sh gs://karlcam-fog-data gs://karlcam-v2-data gs://karlcam-production-data
+
+# List bucket contents
+gsutil ls gs://karlcam-production-data/
+gsutil ls gs://karlcam-fog-data/
+
+# Count files in bucket
+gsutil ls gs://karlcam-production-data/backups/ | wc -l
+gsutil ls gs://karlcam-fog-data/raw_images/ | wc -l
+
+# Check recent files
+gsutil ls gs://karlcam-production-data/raw_images/ | tail -5
+```
+
+#### Check which bucket services are using
+```bash
+# Check production collector bucket configuration
+gcloud run jobs describe karlcam-collector-production --region=us-central1 --format="value(spec.template.spec.template.spec.containers[0].env[].name,spec.template.spec.template.spec.containers[0].env[].value)" | grep BUCKET
+
+# Check production API bucket configuration  
+gcloud run services describe karlcam-api-production --region=us-central1 --format="value(spec.template.spec.template.spec.containers[0].env[].name,spec.template.spec.template.spec.containers[0].env[].value)" | grep BUCKET
+```
 
 ## Commit Message Format
 

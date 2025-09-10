@@ -86,13 +86,13 @@ variable "max_admin_instances" {
 variable "collector_schedule" {
   description = "Cron schedule for the collector job"
   type        = string
-  default     = "0 */4 * * *"  # Every 4 hours
+  default     = "*/15 * * * *"  # Every 15 minutes
 }
 
 variable "labeler_schedule" {
   description = "Cron schedule for the labeler job"
   type        = string
-  default     = "30 2 * * *"   # Daily at 2:30 AM
+  default     = "7,22,37,52 * * * *"   # 7 minutes after each collection
 }
 
 variable "auto_scaling_min_instances" {

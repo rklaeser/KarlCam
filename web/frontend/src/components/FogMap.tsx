@@ -44,6 +44,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
   // State for managing marker images
   const [markerImages, setMarkerImages] = useState<Map<string, string>>(new Map());
   const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [imageTimestamps, setImageTimestamps] = useState<Map<string, Date>>(new Map());
   
   // Modal state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -68,10 +69,17 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
         const data = await response.json();
         
         if (response.ok && data.image_url) {
-          console.log(`✅ Loaded image for ${webcam.id}`);
+          console.log(`✅ Loaded image for ${webcam.id}`, data);
           
           // Update state immediately for this specific image
           setMarkerImages(prev => new Map(prev.set(webcam.id, data.image_url)));
+          
+          // Store timestamp if available
+          if (data.timestamp) {
+            const timestamp = new Date(data.timestamp);
+            setImageTimestamps(prev => new Map(prev.set(webcam.id, timestamp)));
+          }
+          
           setLoadingImages(prev => {
             const newSet = new Set(prev);
             newSet.delete(webcam.id);
@@ -99,6 +107,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
     
     // Clear previous images and set loading state
     setMarkerImages(new Map());
+    setImageTimestamps(new Map());
     setLoadingImages(new Set(webcams.map(w => w.id)));
     
     // Start loading all images independently
@@ -135,6 +144,12 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
         setModalImageUrl(data.image_url);
         // Also cache it for future use
         setMarkerImages(prev => new Map(prev.set(webcamId, data.image_url)));
+        
+        // Store timestamp if available
+        if (data.timestamp) {
+          const timestamp = new Date(data.timestamp);
+          setImageTimestamps(prev => new Map(prev.set(webcamId, timestamp)));
+        }
       }
     } catch (error) {
       console.error(`Failed to fetch modal image:`, error);
@@ -147,6 +162,43 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
     setIsModalOpen(false);
     setSelectedWebcam(null);
     setModalImageUrl(null);
+  };
+
+  // Utility function to format relative time
+  const getRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Get the most recent timestamp and determine if images are from same collection
+  const getGlobalTimestamp = (): { timestamp: Date | null; color: string; allSame: boolean } => {
+    const timestamps = Array.from(imageTimestamps.values());
+    if (timestamps.length === 0) return { timestamp: null, color: '#6c757d', allSame: false };
+
+    // Find most recent timestamp
+    const mostRecent = new Date(Math.max(...timestamps.map(t => t.getTime())));
+    
+    // Check if all timestamps are within 10 minutes of each other (same collection run)
+    const oldestInCollection = new Date(Math.min(...timestamps.map(t => t.getTime())));
+    const diffMinutes = (mostRecent.getTime() - oldestInCollection.getTime()) / (1000 * 60);
+    const allSame = diffMinutes <= 10;
+
+    // Determine color based on age
+    const ageMinutes = (new Date().getTime() - mostRecent.getTime()) / (1000 * 60);
+    let color = '#28a745'; // Green - fresh (< 30 min)
+    if (ageMinutes > 120) color = '#dc3545'; // Red - old (> 2 hours)
+    else if (ageMinutes > 60) color = '#ffc107'; // Yellow - moderate (> 1 hour)
+
+    return { timestamp: mostRecent, color, allSame };
   };
 
   const getFogColor = (fogScore: number, hasData: boolean = true): string => {
@@ -301,6 +353,27 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
           </div>
         </div>
       </div>
+      
+      {/* Centered Timestamp Indicator */}
+      {(() => {
+        const { timestamp, color, allSame } = getGlobalTimestamp();
+        if (!timestamp) return null;
+        
+        return (
+          <div 
+            className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-4 py-2 border border-gray-200 flex items-center gap-2 text-sm font-medium"
+            style={{ zIndex: 1000 }}
+          >
+            <div 
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: color }}
+            ></div>
+            <span className="text-gray-700">
+              {allSame ? 'Updated' : 'Latest'} {getRelativeTime(timestamp)}
+            </span>
+          </div>
+        );
+      })()}
       
       {/* Bottom Modal */}
       {isModalOpen && selectedWebcam && (
