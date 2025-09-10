@@ -3,7 +3,7 @@ FastAPI Review Backend for KarlCam
 Handles review workflow for Gemini-labeled images using Cloud Storage and SQL Database
 """
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
@@ -12,6 +12,7 @@ from datetime import datetime
 import logging
 import os
 import sys
+import io
 from pathlib import Path
 from google.cloud import storage
 from dotenv import load_dotenv
@@ -245,7 +246,7 @@ class ReviewBackend:
                         description=''  # Not included in aggregated query
                     ),
                     gemini_label=gemini_label,
-                    image_url=f"/api/images/cloud/{img['image_filename']}",
+                    image_url=f"/api/images/{img['image_filename']}",
                     status=status,
                     # Store all labels for potential future use
                     # all_labels=valid_labels  # Could add this if the model supports it
@@ -303,7 +304,7 @@ class ReviewBackend:
                             visibility_estimate=row['visibility_estimate'],
                             weather_conditions=row['weather_conditions'] or []
                         ),
-                        image_url=f"/api/images/cloud/{row['image_filename']}",
+                        image_url=f"/api/images/{row['image_filename']}",
                         status="pending"
                     )
                     
@@ -643,30 +644,16 @@ async def get_images_for_review(
         fog_levels=fog_levels
     )
 
-@app.get("/api/images/{image_id}", response_model=ImageForReview)
-async def get_image(image_id: str):
-    """Get specific image for review"""
-    image = review_backend.get_image_by_id(image_id)
-    if not image:
-        raise HTTPException(status_code=404, detail=f"Image {image_id} not found")
-    return image
 
-@app.get("/api/images/cloud/{filename}")
-async def serve_cloud_image(filename: str):
+@app.get("/api/images/{filename}")
+async def serve_image(filename: str):
     """Serve image from Cloud Storage"""
-    from fastapi.responses import StreamingResponse
-    import io
-    
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
-        # Try raw_images path first (from new collector), then fallback to images path
         blob = bucket.blob(f"raw_images/{filename}")
         
         if not blob.exists():
-            # Fallback to old path
-            blob = bucket.blob(f"images/{filename}")
-            if not blob.exists():
-                raise HTTPException(status_code=404, detail="Image not found")
+            raise HTTPException(status_code=404, detail="Image not found")
         
         # Download the image data
         image_data = blob.download_as_bytes()
@@ -684,12 +671,12 @@ async def serve_cloud_image(filename: str):
         return StreamingResponse(
             io.BytesIO(image_data),
             media_type=content_type,
-            headers={"Cache-Control": "public, max-age=3600"}
+            headers={"Cache-Control": "public, max-age=3600"}  # Cache for 1 hour
         )
         
     except Exception as e:
-        logger.error(f"Failed to serve image {filename}: {e}")
-        raise HTTPException(status_code=404, detail="Image not found")
+        logger.error(f"Error serving image {filename}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to serve image")
 
 @app.post("/api/review/{image_id}")
 async def submit_review(image_id: str, decision: ReviewDecision):
