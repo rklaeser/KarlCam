@@ -41,28 +41,16 @@ interface FogMapProps {
 }
 
 const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
-  // Track cameras that have failed to load images
-  const [inactiveCameras, setInactiveCameras] = useState<Set<string>>(new Set());
-  // Track which camera images have loaded
+  // Track which camera images have successfully loaded (kept for potential future use)
   const [loadedCameras, setLoadedCameras] = useState<Set<string>>(new Set());
-  // Track cameras that have already attempted fallback to prevent loops
-  const [fallbackAttempted, setFallbackAttempted] = useState<Set<string>>(new Set());
   
-  // List of cameras to mark as inactive (you can add more IDs here)
-  const knownInactiveCameras = new Set(['ipcamlive']);
-
-  // Set up callbacks for marking cameras as inactive or loaded
+  // Set up callback for marking cameras as loaded
   useEffect(() => {
-    (window as any).markCameraInactive = (cameraId: string) => {
-      setInactiveCameras(prev => new Set(Array.from(prev).concat(cameraId)));
-    };
-    
     (window as any).markCameraLoaded = (cameraId: string) => {
       setLoadedCameras(prev => new Set(Array.from(prev).concat(cameraId)));
     };
     
     return () => {
-      delete (window as any).markCameraInactive;
       delete (window as any).markCameraLoaded;
     };
   }, []);
@@ -76,45 +64,10 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
     return '#6f42c1'; // Purple - Very heavy fog
   };
 
-  const createCameraImageIcon = (imageUrl: string, fogScore: number, webcamId: string, showPlaceholder: boolean = false, hasData: boolean = true): L.DivIcon => {
+  const createDatabaseImageIcon = (webcamId: string, fogScore: number, hasData: boolean = true): L.DivIcon => {
     const borderColor = getFogColor(fogScore, hasData);
     const size = 80; // Fixed size for camera images
-    
-    // If showing placeholder initially
-    if (showPlaceholder) {
-      const html = `
-        <div style="
-          width: ${size}px;
-          height: ${size}px;
-          border: 3px solid ${borderColor};
-          border-radius: 50%;
-          background: #f0f0f0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #999;
-          font-size: 16px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          animation: pulse 1.5s infinite;
-        ">
-          <style>
-            @keyframes pulse {
-              0%, 100% { opacity: 0.6; }
-              50% { opacity: 1; }
-            }
-          </style>
-          📷
-        </div>
-      `;
-      
-      return L.divIcon({
-        html: html,
-        className: 'camera-placeholder-marker',
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
-        popupAnchor: [0, -(size/2) - 5]
-      });
-    }
+    const databaseImageUrl = `${apiBase}/api/public/cameras/${webcamId}/latest-image`;
     
     const html = `
       <div style="
@@ -128,54 +81,19 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       ">
         <img 
-          src="${imageUrl}" 
+          src="${databaseImageUrl}" 
           style="
             width: 100%;
             height: 100%;
             object-fit: cover;
           "
           onload="
-            // Mark camera as loaded
             window.markCameraLoaded && window.markCameraLoaded('${webcamId}');
           "
           onerror="
-            console.log('Map marker image load error for webcam: ${webcamId}');
-            const imgElement = this;
-            
-            // Check if we've already attempted fallback for this camera to prevent loops
-            if (window.fallbackAttempted && window.fallbackAttempted.has('${webcamId}')) {
-              console.log('Fallback already attempted for ${webcamId}, marking as inactive');
-              window.markCameraInactive && window.markCameraInactive('${webcamId}');
-              imgElement.style.display='none'; 
-              imgElement.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:24px;\\'>📷</div>';
-              return;
-            }
-            
-            // Mark that we're attempting fallback for this camera
-            if (!window.fallbackAttempted) window.fallbackAttempted = new Set();
-            window.fallbackAttempted.add('${webcamId}');
-            
-            // Try to fallback to latest collected image
-            fetch('${apiBase}/api/public/cameras/${webcamId}/latest-image')
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error('No collected image available');
-                }
-                return response.json();
-              })
-              .then(data => {
-                console.log('Map marker fallback to collected image:', data);
-                const fullImageUrl = '${apiBase}' + data.image_url;
-                imgElement.src = fullImageUrl;
-                imgElement.style.opacity = '0.8';
-              })
-              .catch(fallbackError => {
-                console.log('Map marker fallback also failed for ${webcamId}:', fallbackError);
-                // Mark this camera as inactive
-                window.markCameraInactive && window.markCameraInactive('${webcamId}');
-                imgElement.style.display='none'; 
-                imgElement.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:24px;\\'>📷</div>';
-              });
+            console.log('Database image load error for webcam: ${webcamId}');
+            this.style.display='none'; 
+            this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:24px;\\'>📷</div>';
           "
         />
       </div>
@@ -183,7 +101,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
 
     return L.divIcon({
       html: html,
-      className: 'camera-image-marker',
+      className: 'camera-database-marker',
       iconSize: [size, size],
       iconAnchor: [size/2, size/2],
       popupAnchor: [0, -(size/2) - 5]
@@ -241,10 +159,8 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         
-        {/* Render camera images as markers */}
-        {webcams
-          .filter(webcam => !knownInactiveCameras.has(webcam.id) && !inactiveCameras.has(webcam.id))
-          .map(webcam => {
+        {/* Render database images as markers */}
+        {webcams.map(webcam => {
           // Find corresponding camera conditions
           const cameraData = cameras.find(cam => 
             cam.id === webcam.id || 
@@ -256,16 +172,8 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
           const fogLevel = cameraData?.fog_level ?? 'No data';
           const confidence = cameraData?.confidence ?? 0;
           
-          // Create the appropriate icon based on image availability and loading state
-          const icon = webcam.url 
-            ? createCameraImageIcon(
-                webcam.url, 
-                fogScore, 
-                webcam.id,
-                !loadedCameras.has(webcam.id) && cameras.length === 0, // Show placeholder if camera not loaded and no fog data yet
-                hasData
-              )
-            : createFallbackIcon(fogScore, hasData);
+          // Use database image for marker (will fallback to camera icon on error)
+          const icon = createDatabaseImageIcon(webcam.id, fogScore, hasData);
           
           return (
             <Marker 
@@ -277,72 +185,25 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
                 <div className="text-sm">
                   <h3 className="font-semibold text-gray-800 mb-2">{webcam.name}</h3>
                   
-                  {/* Camera Image */}
-                  {webcam.url && (
-                    <div className="mb-3">
-                      <img 
-                        src={webcam.url} 
-                        alt={`${webcam.name} current view`}
-                        className="w-full h-48 object-cover rounded-lg"
-                        onError={(e) => {
-                          console.log('Image load error for:', webcam.name, 'URL:', webcam.url);
-                          const imgElement = e.currentTarget;
-                          
-                          // Check if element is still in DOM
-                          if (!imgElement || !imgElement.parentNode) {
-                            return;
-                          }
-                          
-                          // Skip fallback for known inactive cameras
-                          if (knownInactiveCameras.has(webcam.id) || inactiveCameras.has(webcam.id)) {
-                            console.log('Skipping fallback for inactive camera:', webcam.id);
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'w-full h-48 bg-gray-100 rounded-lg flex flex-col items-center justify-center text-gray-500 text-sm p-4';
-                            errorDiv.innerHTML = '📷 Camera currently unavailable';
-                            imgElement.parentNode.replaceChild(errorDiv, imgElement);
-                            return;
-                          }
-                          
-                          // Try to fallback to latest collected image
-                          console.log('Attempting fallback for camera:', webcam.id);
-                          fetch(`${apiBase}/api/public/cameras/${webcam.id}/latest-image`)
-                            .then(response => {
-                              console.log('Fallback response status:', response.status);
-                              if (!response.ok) {
-                                throw new Error('No collected image available');
-                              }
-                              return response.json();
-                            })
-                            .then(data => {
-                              console.log('Fallback to collected image:', data);
-                              // Check if element is still in DOM before updating
-                              if (imgElement && imgElement.parentNode) {
-                                const fullImageUrl = `${apiBase}${data.image_url}`;
-                                console.log('Setting fallback image URL:', fullImageUrl);
-                                imgElement.src = fullImageUrl;
-                                imgElement.title = `Latest collected image from ${new Date(data.timestamp).toLocaleString()}`;
-                                imgElement.style.opacity = '0.8'; // Visual hint it's a fallback image
-                              }
-                            })
-                            .catch(fallbackError => {
-                              console.log('Fallback also failed:', fallbackError);
-                              // Mark camera as inactive for future requests
-                              setInactiveCameras(prev => new Set(Array.from(prev).concat(webcam.id)));
-                              // Check if element is still in DOM before replacing
-                              if (imgElement && imgElement.parentNode) {
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'w-full h-48 bg-gray-100 rounded-lg flex flex-col items-center justify-center text-gray-500 text-sm p-4';
-                                const isHttp = webcam.url.startsWith('http://');
-                                errorDiv.innerHTML = isHttp 
-                                  ? '⚠️ Camera blocked by browser security<br/><small>HTTP images blocked on HTTPS sites</small>'
-                                  : '📷 Camera currently unavailable';
-                                imgElement.parentNode.replaceChild(errorDiv, imgElement);
-                              }
-                            });
-                        }}
-                      />
-                    </div>
-                  )}
+                  {/* Database Image */}
+                  <div className="mb-3">
+                    <img 
+                      src={`${apiBase}/api/public/cameras/${webcam.id}/latest-image`}
+                      alt={`${webcam.name} latest collected view`}
+                      className="w-full h-48 object-cover rounded-lg"
+                      onError={(e) => {
+                        console.log('Database image load error for:', webcam.name);
+                        const imgElement = e.currentTarget;
+                        
+                        if (imgElement && imgElement.parentNode) {
+                          const errorDiv = document.createElement('div');
+                          errorDiv.className = 'w-full h-48 bg-gray-100 rounded-lg flex flex-col items-center justify-center text-gray-500 text-sm p-4';
+                          errorDiv.innerHTML = '📷 No recent image available';
+                          imgElement.parentNode.replaceChild(errorDiv, imgElement);
+                        }
+                      }}
+                    />
+                  </div>
                   
                   <div className="space-y-1 mb-3">
                     <div><strong>Fog Level:</strong> {fogLevel}</div>

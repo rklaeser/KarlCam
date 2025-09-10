@@ -154,11 +154,19 @@ Currently no automated tests are configured. When implementing tests:
 
 When working locally, use `make start-sql` to start a single Cloud SQL proxy on the default PostgreSQL port 5432. The proxy connects to the database instance, allowing access to all databases through the same port.
 
+**Important**: Before running `make start-sql`, check if the proxy is already running:
+```bash
+# Check if Cloud SQL proxy is already running on port 5432
+lsof -i :5432
+```
+
+If the proxy is already running, you can skip `make start-sql` and connect directly to the database.
+
 #### Connecting with psql
 
 ```bash
-# Get the database password (stored in .env file)
-export KARLCAM_DB_PASSWORD="<password-from-env-file>"
+# Get the database password (read from .env file for transparency)
+# Read .env file first to see the password, then use it in commands
 
 # Connect to staging database
 psql "postgresql://karlcam_staging:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_staging"

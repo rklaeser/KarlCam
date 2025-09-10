@@ -67,14 +67,16 @@ def get_latest_camera_data() -> List[Dict]:
         # Get recent images with labels (last 1 day to get latest)
         recent_images = db_manager.get_recent_images(days=1)
         
-        # Group by webcam_id and get latest per camera
+        # Group by webcam_id and get latest LABELED image per camera
         latest_per_camera = {}
         for img in recent_images:
             webcam_id = img['webcam_id']
-            # Keep the most recent image per camera
-            if (webcam_id not in latest_per_camera or 
-                img['timestamp'] > latest_per_camera[webcam_id]['timestamp']):
-                latest_per_camera[webcam_id] = img
+            # Only consider images that have labels
+            if img.get('labels') and len(img['labels']) > 0:
+                # Keep the most recent labeled image per camera
+                if (webcam_id not in latest_per_camera or 
+                    img['timestamp'] > latest_per_camera[webcam_id]['timestamp']):
+                    latest_per_camera[webcam_id] = img
         
         cameras = []
         webcams = db_manager.get_active_webcams()
