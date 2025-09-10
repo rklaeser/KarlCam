@@ -150,23 +150,41 @@ Currently no automated tests are configured. When implementing tests:
 
 ## Database Connections
 
-### Staging Database
-- Host: Cloud SQL instance `karlcam:us-central1:karlcam-db`
-- Database: `karlcam_staging`
-- Access via Cloud SQL Proxy for local development
+### Local Development Database Access
 
-### Production Database  
-- Host: Cloud SQL instance `karlcam:us-central1:karlcam-db`
-- Database: `karlcam_v2`
-- Access restricted to deployed services
+When working locally, use `make start-sql` to start a single Cloud SQL proxy on the default PostgreSQL port 5432. The proxy connects to the database instance, allowing access to all databases through the same port.
 
-## MCP Tools Available
+#### Connecting with psql
 
-The project includes MCP (Model Context Protocol) tools for:
-- `mcp__cloud-sql-postgres-staging__execute_sql`: Execute SQL on staging database
-- `mcp__cloud-sql-postgres-staging__list_tables`: List database tables and schema
-- `mcp__ide__getDiagnostics`: Get IDE diagnostics
-- `mcp__ide__executeCode`: Execute code in Jupyter kernel
+```bash
+# Get the database password (stored in .env file)
+export KARLCAM_DB_PASSWORD="<password-from-env-file>"
+
+# Connect to staging database
+psql "postgresql://karlcam_staging:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_staging"
+
+# Connect to production database (empty database)
+psql "postgresql://karlcam_production:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_production"
+
+# Connect to v2 database (production data)
+psql "postgresql://karlcam_v2:${KARLCAM_DB_PASSWORD}@localhost:5432/karlcam_v2"
+```
+
+### Database Details
+
+All databases are hosted on Cloud SQL instance `karlcam:us-central1:karlcam-db` and accessible through a single local proxy on port 5432:
+
+#### Staging Database: `karlcam_staging`
+- Contains staging/development data
+- 12 webcams configured
+
+#### Production Database: `karlcam_production`  
+- Currently empty (no tables)
+- Reserved for future use
+
+#### V2 Database: `karlcam_v2`
+- Contains current production data
+- 12 webcams configured
 
 ## Common Tasks
 
