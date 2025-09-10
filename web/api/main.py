@@ -231,17 +231,17 @@ async def get_latest_image_url(camera_id: str):
         # Get the most recent image (it's a dictionary, not a model object)
         latest_image = recent_images[0]
         
-        # Convert GCS path to public URL
+        # Convert GCS path to direct public URL
         gcs_path = latest_image['cloud_storage_path']
         if gcs_path.startswith('gs://'):
             # Convert gs://bucket/path to https://storage.googleapis.com/bucket/path
-            public_url = gcs_path.replace('gs://', 'https://storage.googleapis.com/')
+            direct_image_url = gcs_path.replace('gs://', 'https://storage.googleapis.com/')
         else:
-            public_url = gcs_path
+            direct_image_url = gcs_path
         
         return {
             "camera_id": camera_id,
-            "image_url": f"/api/images/{latest_image['image_filename']}",
+            "image_url": direct_image_url,
             "filename": latest_image['image_filename'],
             "timestamp": latest_image['timestamp'].isoformat(),
             "age_hours": (datetime.now().replace(tzinfo=latest_image['timestamp'].tzinfo) - latest_image['timestamp']).total_seconds() / 3600
