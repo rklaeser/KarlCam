@@ -386,20 +386,57 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
             className="bg-white w-full h-3/4 rounded-t-2xl shadow-2xl transform transition-transform duration-300 ease-out relative z-10"
             style={{ animation: 'slideUp 0.3s ease-out' }}
           >
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 z-10 bg-black bg-opacity-20 hover:bg-opacity-40 text-white rounded-full w-8 h-8 flex items-center justify-center transition-all"
-            >
-              ✕
-            </button>
+            {/* Header with Fog Conditions, Live Camera, and Close button */}
+            <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+              {(() => {
+                const cameraData = cameras.find(cam => 
+                  cam.id === selectedWebcam.id || 
+                  (Math.abs(cam.lat - selectedWebcam.lat) < 0.001 && Math.abs(cam.lon - selectedWebcam.lon) < 0.001)
+                );
+                const fogScore = cameraData?.fog_score ?? 0;
+                const fogLevel = cameraData?.fog_level ?? 'No data';
+                const confidence = cameraData?.confidence ?? 0;
+                
+                const getFogBadgeColor = (level: string) => {
+                  switch (level.toLowerCase()) {
+                    case 'clear': return 'bg-green-100 text-green-800';
+                    case 'light fog': return 'bg-yellow-100 text-yellow-800';
+                    case 'moderate fog': return 'bg-orange-100 text-orange-800';
+                    case 'heavy fog': return 'bg-red-100 text-red-800';
+                    case 'very heavy fog': return 'bg-purple-100 text-purple-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                  }
+                };
+
+                return (
+                  <div className="flex items-center gap-3 flex-wrap bg-white/90 backdrop-blur-sm rounded-full px-4 py-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getFogBadgeColor(fogLevel)}`}>
+                      {fogLevel}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      Score: <span className="font-medium text-gray-800">{fogScore.toFixed(1)}/100</span>
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      Confidence: <span className="font-medium text-gray-800">{confidence.toFixed(1)}%</span>
+                    </span>
+                  </div>
+                );
+              })()}
+              
+              <button
+                onClick={closeModal}
+                className="bg-black bg-opacity-20 hover:bg-opacity-40 text-white rounded-full w-8 h-8 flex items-center justify-center transition-all flex-shrink-0"
+              >
+                ✕
+              </button>
+            </div>
             
             {/* Handle bar */}
             <div className="flex justify-center pt-2">
               <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
             </div>
             
-            <div className="p-6 h-full overflow-y-auto">
+            <div className="p-6 pt-16 h-full overflow-y-auto">
               {/* Image Section */}
               <div className="mb-6">
                 {modalImageLoading ? (
@@ -410,7 +447,8 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
                   <img 
                     src={modalImageUrl}
                     alt={`${selectedWebcam.name} latest view`}
-                    className="w-full h-64 object-cover rounded-lg shadow-lg"
+                    className="w-full max-w-3xl mx-auto object-contain rounded-lg shadow-lg bg-gray-50"
+                    style={{ maxHeight: '60vh', minHeight: '200px' }}
                   />
                 ) : (
                   <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
@@ -420,55 +458,17 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
               </div>
               
               {/* Content Section */}
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-gray-800">{selectedWebcam.name}</h2>
-                
-                {(() => {
-                  const cameraData = cameras.find(cam => 
-                    cam.id === selectedWebcam.id || 
-                    (Math.abs(cam.lat - selectedWebcam.lat) < 0.001 && Math.abs(cam.lon - selectedWebcam.lon) < 0.001)
-                  );
-                  const fogScore = cameraData?.fog_score ?? 0;
-                  const fogLevel = cameraData?.fog_level ?? 'No data';
-                  const confidence = cameraData?.confidence ?? 0;
-                  
-                  return (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-semibold text-gray-800 mb-3">Fog Conditions</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <div className="text-sm text-gray-600">Level</div>
-                          <div className="font-medium">{fogLevel}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-600">Score</div>
-                          <div className="font-medium">{fogScore.toFixed(1)}/100</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-600">Confidence</div>
-                          <div className="font-medium">{confidence.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-                
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-2">Description</h3>
-                  <p className="text-gray-600">{selectedWebcam.description}</p>
-                </div>
-                
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <h2 className="text-2xl font-bold text-gray-800 flex-1 min-w-0">{selectedWebcam.name}</h2>
                 {selectedWebcam.video_url && (
-                  <div className="pt-4">
-                    <a 
-                      href={selectedWebcam.video_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                      📹 View Live Camera
-                    </a>
-                  </div>
+                  <a 
+                    href={selectedWebcam.video_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 shadow-lg flex-shrink-0"
+                  >
+                    📹 Live video
+                  </a>
                 )}
               </div>
             </div>
