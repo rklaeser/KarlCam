@@ -281,30 +281,48 @@ steps:
         
         pip install requests
         
-        API_URL="https://api.staging.karl.cam"
-        FRONTEND_URL="https://staging.karl.cam"
-        
         # Wait a moment for services to be fully ready
         echo "⏰ Waiting 30s for services to fully initialize..."
         sleep 30
         
         # Test all public endpoints
         echo "🔍 Testing API endpoints..."
-        endpoints="/api/public/ /api/public/cameras /api/public/stats /api/public/config/public"
         
-        for endpoint in $endpoints; do
-          echo "Testing $endpoint..."
-          response=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL$endpoint" --max-time 15)
-          if [ "$response" = "200" ]; then
-            echo "✅ $endpoint - OK"  
-          else
-            echo "⚠️  $endpoint - HTTP $response (continuing anyway)"
-          fi
-        done
+        echo "Testing /api/public/..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.staging.karl.cam/api/public/" --max-time 15)
+        if [ "$response" = "200" ]; then
+          echo "✅ /api/public/ - OK"  
+        else
+          echo "⚠️  /api/public/ - HTTP $response (continuing anyway)"
+        fi
+        
+        echo "Testing /api/public/cameras..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.staging.karl.cam/api/public/cameras" --max-time 15)
+        if [ "$response" = "200" ]; then
+          echo "✅ /api/public/cameras - OK"  
+        else
+          echo "⚠️  /api/public/cameras - HTTP $response (continuing anyway)"
+        fi
+        
+        echo "Testing /api/public/stats..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.staging.karl.cam/api/public/stats" --max-time 15)
+        if [ "$response" = "200" ]; then
+          echo "✅ /api/public/stats - OK"  
+        else
+          echo "⚠️  /api/public/stats - HTTP $response (continuing anyway)"
+        fi
+        
+        echo "Testing /api/public/config/public..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.staging.karl.cam/api/public/config/public" --max-time 15)
+        if [ "$response" = "200" ]; then
+          echo "✅ /api/public/config/public - OK"  
+        else
+          echo "⚠️  /api/public/config/public - HTTP $response (continuing anyway)"
+        fi
         
         # Test frontend
         echo "🔍 Testing frontend..."
-        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" --max-time 15)
+        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" "https://staging.karl.cam" --max-time 15)
         if [ "$frontend_response" = "200" ]; then
           echo "✅ Frontend - OK"
         else
