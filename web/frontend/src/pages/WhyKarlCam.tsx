@@ -45,7 +45,7 @@ const WhyKarlCam: React.FC = () => {
                 <h4 className="font-semibold text-gray-800 mb-2">Acceptance Criteria:</h4>
                 <ul className="space-y-1 text-sm text-gray-700">
                   <li>• Weather apps only provide neighborhood-level forecasts without ground-truth data</li>
-                  <li>• <a href="https://fog.today/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fog.today</a> shows satellite view but not ground-level visibility</li>
+                  <li>• <a href="https://fog.today/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fog.today</a> shows satellite view but cannot distinguish clouds from fog. Fog is a cloud at ground level.</li>
                   <li>• Need hyperlocal visibility data across San Francisco's varied microclimates</li>
                   <li>• Must show current conditions, not just forecasts</li>
                 </ul>
@@ -61,7 +61,7 @@ const WhyKarlCam: React.FC = () => {
                   <li>• Aggregates public webcams across SF neighborhoods</li>
                   <li>• Uses computer vision to detect ground-level fog density</li>
                   <li>• Displays color-coded fog conditions on interactive map</li>
-                  <li>• Updates every 5-10 minutes</li>
+                  <li>• Updates every 15 minutes</li>
                 </ul>
               </div>
               

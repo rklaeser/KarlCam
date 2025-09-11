@@ -20,8 +20,8 @@ max_frontend_instances = 5
 max_admin_instances    = 3
 
 # Production collection schedule
-collector_schedule = "0 */4 * * *"  # Every 4 hours
-labeler_schedule   = "30 2 * * *"   # Daily at 2:30 AM
+collector_schedule = "*/15 7-18 * * *"  # Every 15 minutes, 7am-6:45pm
+labeler_schedule   = "7,22,37,52 7-18 * * *"  # Every 15 minutes offset by 7 min, 7:07am-6:52pm
 
 
 # Production-specific settings
