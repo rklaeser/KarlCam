@@ -1,17 +1,19 @@
 # KarlCam
 
-A serverless webcam monitoring and analysis system built on Google Cloud Platform. KarlCam  collects images from webcams across San Francisco, analyzes them, and provides a public interface to view current conditions and historical data.
+A serverless webcam monitoring and fog detection system built on Google Cloud Platform. KarlCam collects images from webcams across San Francisco, analyzes them for fog conditions using AI, and provides public and admin interfaces to view the data.
 
 ## 🏗️ Architecture
 
 KarlCam uses a modern serverless architecture on Google Cloud:
 
-- **Data Collection**: Cloud Run Job that periodically collects webcam images
-- **API Backend**: Cloud Run service providing REST endpoints
-- **Public Frontend**: React application for viewing webcam data
+- **Data Collection**: Cloud Run Job that periodically fetches webcam images
+- **Fog Labeling**: AI service using Gemini to analyze images for fog conditions
+- **API Backend**: FastAPI service providing REST endpoints for public data access
+- **Public Frontend**: React application for viewing webcam data and fog conditions
 - **Admin System**: Management interface for system administration
 - **Storage**: Cloud SQL (PostgreSQL) for metadata, Cloud Storage for images
-- **CI/CD**: Cloud Build with GitHub integration
+- **Infrastructure**: Terraform-managed GCP resources
+- **CI/CD**: Cloud Build with automated deployments
 
 ## 🚀 Quick Start
 
@@ -20,230 +22,188 @@ KarlCam uses a modern serverless architecture on Google Cloud:
 - Google Cloud Project with billing enabled
 - GitHub repository connected to Cloud Build
 - `gcloud` CLI installed and authenticated
+- Terraform installed (v1.5+)
 
 ### Deployment
 
+KarlCam uses Cloud Build for automated deployments. Push to the `main` branch triggers production deployment, while `staging` branch triggers staging deployment.
+
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/reedkle/KarlCam.git
+   git clone https://github.com/Klaeser-Homelab/KarlCam.git
    cd KarlCam
    ```
 
-2. **Deploy infrastructure:**
+2. **Manual deployment via Cloud Build:**
    ```bash
-   ./infra/deploy-v2.sh infrastructure
+   gcloud builds submit --config=cloudbuild.yaml
    ```
 
-3. **Deploy all services:**
+3. **Deploy with Terraform (from terraform/ directory):**
    ```bash
-   ./infra/deploy-v2.sh all
-   ```
-
-4. **Or deploy individual components:**
-   ```bash
-   ./infra/deploy-v2.sh collector    # Data collection job
-   ./infra/deploy-v2.sh api         # API service  
-   ./infra/deploy-v2.sh frontend    # Public frontend
-   ./infra/deploy-v2.sh admin       # Admin system
+   terraform init -backend-config="bucket=karlcam-terraform-state" \
+                  -backend-config="prefix=terraform/state/production"
+   terraform plan -var-file="environments/production/terraform.tfvars"
+   terraform apply -var-file="environments/production/terraform.tfvars"
    ```
 
 ## 🏃‍♂️ Running Locally
 
-### Backend Development
+### Local Development Setup
+
+1. **Start Cloud SQL Proxy (required for local development):**
+   ```bash
+   make start-sql
+   ```
+
+2. **Get database password:**
+   ```bash
+   gcloud secrets versions access latest --secret="karlcam-db-password" --project=karlcam
+   ```
+
+3. **Start individual services:**
+   ```bash
+   make start-api            # API server on http://localhost:8002
+   make start-frontend       # Frontend on http://localhost:3000
+   make start-admin-backend  # Admin API on http://localhost:8001
+   make start-admin-frontend # Admin UI on http://localhost:3001
+   make start-collect        # Run collector locally
+   ```
+
+### Python Development
 
 1. **Set up Python environment:**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   # or: venv\Scripts\activate  # Windows
+   python3 -m venv venv
+   source venv/bin/activate
    ```
 
-2. **Install dependencies:**
+2. **Install dependencies for specific service:**
    ```bash
    pip install -r web/api/requirements.txt
    pip install -r collect/requirements.txt
+   pip install -r label/requirements.txt
    ```
 
-3. **Set up database:**
+3. **Initialize database:**
    ```bash
    python -m db.init_db
    ```
 
-4. **Run API server:**
-   ```bash
-   cd web/api
-   python main.py
-   ```
-
 ### Frontend Development
 
-1. **Install dependencies:**
+1. **Web frontend:**
    ```bash
    cd web/frontend
    npm install
+   npm start         # Development server on http://localhost:3000
+   npm run build     # Production build
+   npm test          # Run tests
    ```
 
-2. **Start development server:**
-   ```bash
-   npm start
-   ```
-
-3. **Build for production:**
-   ```bash
-   npm run build
-   ```
-
-### Admin Interface
-
-1. **Install dependencies:**
+2. **Admin frontend:**
    ```bash
    cd admin/frontend
    npm install
-   ```
-
-2. **Start admin interface:**
-   ```bash
-   npm start
+   npm start         # Development server on http://localhost:3001
+   npm run build     # Production build
    ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
+#### Required for all Python services
+- `DATABASE_URL`: PostgreSQL connection string (format: `postgresql://user:password@host:port/database`)
+- `BUCKET_NAME`: Cloud Storage bucket name (default: `karlcam-fog-data`)
+
+#### Service-specific
+- `USE_CLOUD_STORAGE`: Enable Cloud Storage integration (default: `true`)
 - `PROJECT_ID`: Google Cloud project ID
-- `REGION`: Deployment region (default: us-central1)
-- `BUCKET_NAME`: Cloud Storage bucket name
-- `DATABASE_URL`: PostgreSQL connection string
-
-### Webcam Sources
-
-Webcam URLs are configured in `data/webcams.json`. Add new sources by updating this file with:
-
-```json
-{
-  "name": "webcam-name",
-  "url": "https://example.com/webcam.jpg",
-  "location": {
-    "lat": 37.7749,
-    "lng": -122.4194
-  },
-  "description": "Webcam description"
-}
-```
+- `REGION`: Deployment region (default: `us-central1`)
 
 ## 📊 API Endpoints
 
 ### Public API
 
-- `GET /api/public/cameras` - List all webcams
-- `GET /api/public/cameras/{id}` - Get specific webcam data
-- `GET /api/public/cameras/{id}/latest` - Get latest image
+- `GET /api/public/cameras` - List all active webcams
+- `GET /api/public/cameras/{id}/latest` - Get latest image and labels
 - `GET /api/public/cameras/{id}/history` - Get historical data
+- `GET /api/public/stats` - System statistics
+- `GET /api/system/status` - System status and mode
 
-### Admin API
-
-- `GET /api/admin/stats` - System statistics
-- `POST /api/admin/collect` - Trigger manual collection
-- `GET /api/admin/logs` - View system logs
 
 ## 🏗️ Project Structure
 
 ```
 KarlCam/
-├── collect/           # Data collection service
+├── collect/           # Data collection service (Cloud Run Job)
+│   └── infra/        # Collector Dockerfile and configs
+├── label/            # Fog labeling service (Cloud Run Job)
+│   ├── labelers/     # Different labeler implementations
+│   └── infra/        # Labeler Dockerfile and configs
 ├── web/
-│   ├── api/          # REST API backend
+│   ├── api/          # FastAPI backend service
+│   │   └── infra/    # API Dockerfile and configs
 │   └── frontend/     # Public React frontend
+│       └── infra/    # Frontend Dockerfile and configs
 ├── admin/
-│   ├── backend/      # Admin API
+│   ├── backend/      # Admin API service
+│   │   └── infra/    # Admin backend Dockerfile
 │   └── frontend/     # Admin React interface
-├── db/               # Database models and utilities
-├── infra/            # Deployment scripts and Dockerfiles
-├── data/             # Configuration and sample data
-└── cloudbuild.yaml   # CI/CD configuration
+│       └── infra/    # Admin frontend Dockerfile
+├── db/               # Database models and schema
+│   └── infra/        # Database initialization scripts
+├── terraform/        # Infrastructure as Code
+│   ├── environments/ # Environment-specific configs
+│   ├── modules/      # Reusable Terraform modules
+│   └── scripts/      # Deployment helper scripts
+├── data/             # Configuration data
+├── training/         # ML training resources
+├── Makefile          # Local development commands
+└── cloudbuild.yaml   # CI/CD pipeline configuration
 ```
 
 ## 🚀 CI/CD Pipeline
 
 KarlCam uses Cloud Build for automated deployments:
 
-1. **Trigger**: Push to `main` branch
+1. **Triggers**: 
+   - `main` branch → Production deployment
+   - `staging` branch → Staging deployment
 2. **Build**: All Docker images built in parallel
-3. **Test**: Run npm ci for frontend builds
-4. **Deploy**: Deploy to Cloud Run services
-5. **Monitor**: Logs available in Cloud Console
-
-### Manual Build
-
-```bash
-gcloud builds submit --config=cloudbuild.yaml
-```
-
-## 🔐 Security
-
-- **Authentication**: Service accounts for inter-service communication
-- **Authorization**: IAM roles and permissions
-- **Network**: VPC and firewall rules
-- **Data**: Encrypted at rest and in transit
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Build failures**: Check Cloud Build logs in Console
-2. **Permission errors**: Verify IAM roles for service accounts
-3. **Database connection**: Ensure Cloud SQL is accessible
-4. **Missing images**: Check Cloud Storage permissions
-
-### Useful Commands
-
-```bash
-# View recent builds
-gcloud builds list --limit=5
-
-# Check service logs
-gcloud run logs read karlcam-api-v2 --region=us-central1
-
-# Run collector manually
-gcloud run jobs execute karlcam-collector-v2 --region=us-central1
-
-# Check service status
-gcloud run services list --region=us-central1
-```
-
-## 📈 Monitoring
-
-- **Cloud Run**: Built-in metrics and logging
-- **Cloud SQL**: Performance insights
-- **Cloud Storage**: Usage metrics
-- **Custom**: Application-level monitoring via API
+3. **Push**: Images pushed to Google Container Registry
+4. **Infrastructure**: Terraform applies environment-specific configs
+5. **Deploy**: Services deployed to Cloud Run
+6. **Schedule**: Cloud Scheduler jobs configured for data collection
 
 ## 💰 Cost Optimization
 
 KarlCam is designed for cost efficiency:
 
-- **Serverless**: Pay only for actual usage
-- **Estimated cost**: ~$5-15/month for typical usage
-- **Optimization**: Automatic scaling to zero when idle
+- **Serverless Architecture**: Pay only for actual usage
+- **Scheduled Collection**: Runs only during specified hours (7am-7pm)
+- **Auto-scaling**: Services scale to zero when idle
+- **Efficient Storage**: Images stored in Cloud Storage with lifecycle policies
+- **Estimated Cost**: ~$10-30/month for production usage
 
-## 🤝 Contributing
+## 📊 Database Schema
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes and test locally
-4. Submit a pull request
-5. Automated builds will test your changes
+Key tables:
+- `webcams`: Camera configurations and metadata
+- `collection_runs`: Tracking of collection job executions
+- `image_collections`: Raw collected images metadata
+- `image_labels`: AI-generated labels for fog analysis
+- `system_status`: System state tracking
 
-## 📄 License
+## 🔍 Fog Detection
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+The system uses Gemini AI to analyze images for fog conditions:
+- **Fog Score**: 0-100 numerical score
+- **Fog Level**: Clear, Light Fog, Moderate Fog, Heavy Fog, Very Heavy Fog
+- **Confidence**: 0-1 confidence score
+- **Multiple Labelers**: Support for different labeling strategies
 
-## 🙋‍♂️ Support
+## 📝 License
 
-- **Issues**: GitHub Issues
-- **Documentation**: This README and inline code comments
-- **Logs**: Cloud Console for deployment and runtime issues
-
----
-
-Built with ❤️ for San Francisco webcam enthusiasts
+This project is open source and available under the MIT License.
