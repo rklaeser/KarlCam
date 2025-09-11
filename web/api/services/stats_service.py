@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from db.connection import get_db_connection
 from psycopg2.extras import RealDictCursor
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,12 @@ class StatsService:
                             COUNT(DISTINCT webcam_id) as active_cameras,
                             AVG(fog_score) as avg_fog_score,
                             AVG(confidence) as avg_confidence,
-                            COUNT(CASE WHEN fog_score > 50 THEN 1 END) as foggy_conditions,
+                            COUNT(CASE WHEN fog_score > %s THEN 1 END) as foggy_conditions,
                             MAX(timestamp) as last_update
                         FROM image_collections 
                         WHERE status = 'success'
-                            AND timestamp >= NOW() - INTERVAL '24 hours'
-                    """)
+                            AND timestamp >= NOW() - INTERVAL '%s hours'
+                    """, (settings.FOGGY_CONDITIONS_THRESHOLD, settings.STATS_PERIOD_HOURS))
                     
                     stats = cur.fetchone()
                     
@@ -46,7 +47,7 @@ class StatsService:
                         "avg_confidence": round(stats['avg_confidence'] or 0, 2),
                         "foggy_conditions": stats['foggy_conditions'],
                         "last_update": stats['last_update'].isoformat() if stats['last_update'] else None,
-                        "period": "24 hours"
+                        "period": f"{settings.STATS_PERIOD_HOURS} hours"
                     }
                     
         except Exception as e:

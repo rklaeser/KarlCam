@@ -132,3 +132,65 @@ class ValidationErrorResponse(BaseModel):
     error_code: str = "VALIDATION_ERROR"
     errors: List[Dict[str, Any]]
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class DefaultLocationResponse(BaseModel):
+    """Default location configuration schema"""
+    name: str
+    latitude: float
+    longitude: float
+
+
+class PublicConfigResponse(BaseModel):
+    """Public configuration response schema"""
+    app_name: str
+    version: str
+    environment: str
+    fog_detection_threshold: int
+    foggy_conditions_threshold: int
+    default_location: DefaultLocationResponse
+    default_history_hours: int
+    stats_period_hours: int
+    api_prefix: str
+
+
+class FullConfigResponse(BaseModel):
+    """Full configuration response schema (admin only)"""
+    # Application settings
+    app_name: str
+    version: str
+    environment: str
+    debug: bool
+    
+    # Server settings
+    api_prefix: str
+    
+    # Fog detection settings
+    fog_detection_threshold: int
+    foggy_conditions_threshold: int
+    
+    # Location settings
+    default_latitude: float
+    default_longitude: float
+    default_location_name: str
+    
+    # Time settings
+    recent_images_days: int
+    camera_history_days: int
+    default_history_hours: int
+    stats_period_hours: int
+    
+    # Database settings (without sensitive data)
+    db_pool_min_conn: int
+    db_pool_max_conn: int
+    db_pool_timeout: int
+    
+    # GCS settings
+    bucket_name: str
+    gcs_timeout: int
+    
+    # CORS settings
+    cors_origins: List[str]
+    cors_allow_credentials: bool
+    cors_allowed_methods: List[str]
+    cors_allowed_headers: List[str]

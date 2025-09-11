@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from db.manager import DatabaseManager
+from ..core.config import settings
 from ..utils.exceptions import (
     CameraNotFoundException,
     NoImagesFoundError,
@@ -30,8 +31,8 @@ class CameraService:
     def get_latest_camera_data(self) -> List[Dict]:
         """Get latest camera data from database"""
         try:
-            # Get recent images with labels (last 1 day to get latest)
-            recent_images = self.db_manager.get_recent_images(days=1)
+            # Get recent images with labels (configurable days to get latest)
+            recent_images = self.db_manager.get_recent_images(days=settings.RECENT_IMAGES_DAYS)
             
             # Group by webcam_id and get latest LABELED image per camera
             latest_per_camera = {}
@@ -56,13 +57,13 @@ class CameraService:
                     label = latest_img['labels'][0]
                     fog_score = label.get('fog_score', 0) or 0
                     confidence = label.get('confidence', 0) or 0
-                    fog_detected = fog_score > 20
+                    fog_detected = fog_score > settings.FOG_DETECTION_THRESHOLD
                     
                     cameras.append({
                         "id": webcam.id,
                         "name": webcam.name,
-                        "lat": webcam.latitude or 37.7749,
-                        "lon": webcam.longitude or -122.4194,
+                        "lat": webcam.latitude or settings.DEFAULT_LATITUDE,
+                        "lon": webcam.longitude or settings.DEFAULT_LONGITUDE,
                         "description": webcam.description or "",
                         "fog_score": fog_score,
                         "fog_level": label.get('fog_level', 'Unknown'),
@@ -102,9 +103,11 @@ class CameraService:
             logger.error(f"Error fetching webcams: {e}")
             raise DataProcessingError("Failed to fetch webcam list")
     
-    def get_camera_history(self, camera_id: str, hours: int = 24) -> List[Dict]:
+    def get_camera_history(self, camera_id: str, hours: int = None) -> List[Dict]:
         """Get historical data for a specific camera"""
         try:
+            if hours is None:
+                hours = settings.DEFAULT_HISTORY_HOURS
             days = max(1, hours / 24)  # Convert hours to days, minimum 1 day
             
             # Get recent images for this specific camera
@@ -136,7 +139,7 @@ class CameraService:
         """Get the latest collected image info for a camera"""
         try:
             # Get recent images for this camera (limit 1 for latest)
-            recent_images = self.db_manager.get_recent_images(webcam_id=camera_id, days=30)
+            recent_images = self.db_manager.get_recent_images(webcam_id=camera_id, days=settings.CAMERA_HISTORY_DAYS)
             
             if not recent_images:
                 raise NoImagesFoundError(camera_id)

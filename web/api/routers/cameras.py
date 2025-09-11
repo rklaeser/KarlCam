@@ -7,6 +7,7 @@ from datetime import datetime
 
 from ..services.camera_service import CameraService
 from ..core.dependencies import get_db_manager
+from ..core.config import settings
 from ..schemas.common import (
     CamerasListResponse,
     CameraResponse,
@@ -65,7 +66,7 @@ async def get_latest_image_url(camera_id: str, db_manager=Depends(get_db_manager
 @router.get("/cameras/{camera_id}", response_model=CameraDetailResponse)
 async def get_camera_detail(
     camera_id: str, 
-    hours: Optional[int] = 24,
+    hours: Optional[int] = None,
     db_manager=Depends(get_db_manager)
 ):
     """Get detailed information and history for a specific camera"""
@@ -78,8 +79,9 @@ async def get_camera_detail(
     if not current_camera:
         raise HTTPException(status_code=404, detail=f"Camera {camera_id} not found")
     
-    # Get historical data
-    history_data = service.get_camera_history(camera_id, hours)
+    # Get historical data (use default from settings if not provided)
+    hours_to_use = hours if hours is not None else settings.DEFAULT_HISTORY_HOURS
+    history_data = service.get_camera_history(camera_id, hours_to_use)
     
     camera = CameraResponse(**current_camera)
     history = [HistoryItemResponse(**item) for item in history_data]
@@ -87,6 +89,6 @@ async def get_camera_detail(
     return CameraDetailResponse(
         camera=camera,
         history=history,
-        history_hours=hours,
+        history_hours=hours_to_use,
         history_count=len(history)
     )

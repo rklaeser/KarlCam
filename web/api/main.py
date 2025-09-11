@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 
 from .core.config import settings
 from .core.dependencies import get_db_pool, cleanup_dependencies
-from .routers import health, cameras, images, system
+from .routers import health, cameras, images, system, config
 from .utils.exceptions import KarlCamException
 
 # Configure logging
@@ -27,10 +27,26 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
     # Startup
     logger.info("Starting up KarlCam Fog API...")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Debug mode: {settings.DEBUG}")
+    
+    # Validate configuration
+    try:
+        settings.__post_init__()
+        logger.info("Configuration validation passed")
+    except ValueError as e:
+        logger.error(f"Configuration validation failed: {e}")
+        raise
     
     # Initialize database pool
     db_pool = get_db_pool()
     logger.info("Database pool initialized")
+    
+    # Log key configuration values (non-sensitive)
+    logger.info(f"Fog detection threshold: {settings.FOG_DETECTION_THRESHOLD}")
+    logger.info(f"Default location: {settings.DEFAULT_LOCATION_NAME} ({settings.DEFAULT_LATITUDE}, {settings.DEFAULT_LONGITUDE})")
+    logger.info(f"Recent images days: {settings.RECENT_IMAGES_DAYS}")
+    logger.info(f"CORS origins: {len(settings.CORS_ORIGINS)} configured")
     
     yield
     
@@ -52,9 +68,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOWED_METHODS,
+    allow_headers=settings.CORS_ALLOWED_HEADERS,
 )
 
 
@@ -106,6 +122,7 @@ app.include_router(health.router)
 app.include_router(cameras.router, prefix=settings.API_PREFIX)
 app.include_router(images.router, prefix=settings.API_PREFIX)
 app.include_router(system.router, prefix=settings.API_PREFIX)
+app.include_router(config.router, prefix=settings.API_PREFIX)
 
 logger.info(f"KarlCam Fog API {settings.VERSION} initialized")
 logger.info(f"Database URL configured: {bool(settings.DATABASE_URL)}")
@@ -113,4 +130,7 @@ logger.info(f"Bucket name: {settings.BUCKET_NAME}")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app)
+    uvicorn.run(
+        app,
+        log_level="debug" if settings.DEBUG else "info"
+    )
