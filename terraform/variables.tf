@@ -95,6 +95,12 @@ variable "labeler_schedule" {
   default     = "7,22,37,52 * * * *"   # 7 minutes after each collection
 }
 
+variable "pipeline_schedule" {
+  description = "Cron schedule for the unified pipeline job (collect + label)"
+  type        = string
+  default     = "*/10 * * * *"  # Every 10 minutes - unified pipeline is faster
+}
+
 variable "auto_scaling_min_instances" {
   description = "Minimum number of instances for auto-scaling"
   type        = number

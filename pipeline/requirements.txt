@@ -1,0 +1,23 @@
+# Unified pipeline dependencies - combining collector and labeler requirements
+
+# Async HTTP for concurrent image collection
+aiohttp==3.9.1
+
+# Core image processing
+pillow==11.3.0
+numpy==2.2.6
+
+# HTTP requests (for discovery and fallback)
+requests==2.32.4
+
+# AI/ML for labeling
+google-generativeai==0.3.2
+
+# Database
+psycopg2-binary==2.9.9
+
+# Cloud Storage
+google-cloud-storage==2.10.0
+
+# Timezone handling
+pytz==2025.2

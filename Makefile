@@ -10,6 +10,7 @@ help:
 	@echo "  start-admin-backend  - Setup and start the admin backend server (http://localhost:8001)"
 	@echo "  start-admin-frontend - Setup and start the admin frontend development server (http://localhost:3001)"
 	@echo "  start-collect        - Setup and run the dual scoring collector locally"
+	@echo "  start-pipeline       - Setup and run the unified pipeline (collect + label)"
 	@echo "  start-sql           - Start Cloud SQL Proxy for local development"
 	@echo "  clean               - Remove virtual environments and node_modules"
 	@echo ""
@@ -78,6 +79,25 @@ start-collect:
 	@echo "📊 Data will be saved to ./test_data/"
 	cd collect && source venv/bin/activate && python collect_images.py
 
+# Pipeline: setup venv + install deps + run unified collect+label
+start-pipeline:
+	@echo "Setting up and running unified pipeline (collect + label)..."
+	@if [ ! -f .env ]; then \
+		echo "⚠️  No .env file found with GEMINI_API_KEY"; \
+		echo "📝 Create .env file with your Gemini API key:"; \
+		echo "   echo 'GEMINI_API_KEY=your_key_here' > .env"; \
+		exit 1; \
+	fi
+	rm -rf pipeline/venv
+	cd pipeline && python3 -m venv venv
+	cd pipeline && source venv/bin/activate && pip install -r requirements.txt
+	@echo "📁 Creating output directories..."
+	@mkdir -p output/{raw_images,raw_metadata}
+	@echo "🚀 Running unified pipeline..."
+	@echo "📊 Data will be saved to ./output/"
+	@echo "🔄 LOCAL_TESTING=true (no database/cloud storage)"
+	cd pipeline && source venv/bin/activate && LOCAL_TESTING=true OUTPUT_DIR=../output python collect_and_label.py
+
 # Cloud SQL Proxy: start single proxy for all database access
 start-sql:
 	@echo "🔌 Starting Cloud SQL Proxy for database access..."
@@ -107,6 +127,7 @@ clean:
 	rm -rf web/api/venv
 	rm -rf admin/backend/venv
 	rm -rf collect/venv
+	rm -rf pipeline/venv
 	rm -rf web/frontend/node_modules
 	rm -rf admin/frontend/node_modules
 	@echo "Cleanup complete!"

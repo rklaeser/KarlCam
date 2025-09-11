@@ -43,6 +43,20 @@ steps:
       - '.'
 
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-pipeline'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${BRANCH_NAME}'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:latest'
+      - '-f'
+      - 'pipeline/Dockerfile.prod'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
     id: 'build-api'
     args:
       - 'build'
@@ -114,6 +128,11 @@ steps:
     waitFor: ['build-labeler']
 
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-pipeline'
+    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-pipeline']
+    waitFor: ['build-pipeline']
+
+  - name: 'gcr.io/cloud-builders/docker'
     id: 'push-api'
     args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-api']
     waitFor: ['build-api']
@@ -173,21 +192,13 @@ steps:
             --sql="UPDATE image_collections SET timestamp = NOW() - INTERVAL '5 minutes' WHERE id IN (SELECT DISTINCT ON (webcam_id) id FROM image_collections ORDER BY webcam_id, timestamp DESC);" \
             || echo "⚠️  Timestamp update failed, continuing anyway"
           
-          # Run collector job to get new data
-          echo "🏃 Running collector job..."
-          gcloud run jobs execute karlcam-collector-staging \
+          # Run unified pipeline job to collect and label data
+          echo "🚀 Running unified pipeline job (collect + label)..."
+          gcloud run jobs execute karlcam-pipeline-staging \
             --region=${_REGION} \
             --project=${_PROJECT_ID} \
             --wait \
-            || echo "⚠️  Collector job failed, continuing anyway"
-          
-          # Run labeler job to process the collected data
-          echo "🏷️  Running labeler job..."
-          gcloud run jobs execute karlcam-labeler-staging \
-            --region=${_REGION} \
-            --project=${_PROJECT_ID} \
-            --wait \
-            || echo "⚠️  Labeler job failed, continuing anyway"
+            || echo "⚠️  Pipeline job failed, continuing anyway"
           
           echo "✅ Staging data population completed!"
         fi
@@ -214,7 +225,8 @@ steps:
     secretEnv: ['DATABASE_PASSWORD', 'GEMINI_API_KEY']
     waitFor: 
       - 'push-collector'
-      - 'push-labeler' 
+      - 'push-labeler'
+      - 'push-pipeline'
       - 'push-api'
       - 'push-frontend'
       - 'push-admin-backend'
@@ -353,6 +365,8 @@ images:
   - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${BRANCH_NAME}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${SHORT_SHA}'
+  - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'

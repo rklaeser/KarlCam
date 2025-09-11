@@ -338,6 +338,84 @@ resource "google_cloud_run_v2_job" "karlcam_labeler" {
   ]
 }
 
+# Cloud Run Job - Unified Pipeline (collect + label)
+resource "google_cloud_run_v2_job" "karlcam_pipeline" {
+  name     = "karlcam-pipeline-${var.environment}"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    template {
+      service_account = local.service_account_email
+      
+      containers {
+        image = "gcr.io/${var.project_id}/karlcam-pipeline:${var.image_tag}"
+        
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+        
+        env {
+          name  = "PROJECT_ID"
+          value = var.project_id
+        }
+        
+        env {
+          name  = "USE_CLOUD_STORAGE"
+          value = "true"
+        }
+        
+        env {
+          name  = "OUTPUT_BUCKET"
+          value = var.bucket_name
+        }
+        
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.database_url.secret_id
+              version = "latest"
+            }
+          }
+        }
+        
+        env {
+          name = "GEMINI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.gemini_api_key.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        resources {
+          limits = {
+            cpu    = "2"
+            memory = "2Gi"
+          }
+        }
+      }
+      
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [data.terraform_remote_state.shared.outputs.sql_instance_connection_name]
+        }
+      }
+
+      timeout = "600s"  # 10 minutes timeout for complete pipeline
+      max_retries = 1
+    }
+  }
+
+  depends_on = [
+    data.terraform_remote_state.shared
+  ]
+}
+
 # IAM Policy - Allow unauthenticated access to public services
 resource "google_cloud_run_service_iam_binding" "api_public" {
   location = google_cloud_run_v2_service.karlcam_api.location
