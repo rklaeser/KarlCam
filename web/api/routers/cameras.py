@@ -7,48 +7,63 @@ from datetime import datetime
 
 from ..services.camera_service import CameraService
 from ..core.dependencies import get_db_manager
+from ..schemas.common import (
+    CamerasListResponse,
+    CameraResponse,
+    WebcamsListResponse,
+    WebcamResponse,
+    ImageInfoResponse,
+    CameraDetailResponse,
+    HistoryItemResponse
+)
 
 router = APIRouter(prefix="/public", tags=["cameras"])
 
 
-@router.get("/cameras")
+@router.get("/cameras", response_model=CamerasListResponse)
 async def get_cameras(db_manager=Depends(get_db_manager)):
     """Get latest fog assessment for all cameras"""
     service = CameraService(db_manager)
     camera_data = service.get_latest_camera_data()
-    return {
-        "cameras": camera_data,
-        "timestamp": datetime.now().isoformat(),
-        "count": len(camera_data)
-    }
+    
+    cameras = [CameraResponse(**camera) for camera in camera_data]
+    
+    return CamerasListResponse(
+        cameras=cameras,
+        timestamp=datetime.now().isoformat(),
+        count=len(cameras)
+    )
 
 
-@router.get("/webcams")
+@router.get("/webcams", response_model=WebcamsListResponse)
 async def get_webcams(db_manager=Depends(get_db_manager)):
     """Get all webcam locations for the map"""
     service = CameraService(db_manager)
     webcam_data = service.get_webcam_list()
-    return {
-        "webcams": webcam_data,
-        "timestamp": datetime.now().isoformat(),
-        "count": len(webcam_data)
-    }
+    
+    webcams = [WebcamResponse(**webcam) for webcam in webcam_data]
+    
+    return WebcamsListResponse(
+        webcams=webcams,
+        timestamp=datetime.now().isoformat(),
+        count=len(webcams)
+    )
 
 
-@router.get("/cameras/{camera_id}/latest-image")
+@router.get("/cameras/{camera_id}/latest-image", response_model=ImageInfoResponse)
 async def get_latest_image_url(camera_id: str, db_manager=Depends(get_db_manager)):
     """Get the latest collected image URL for a camera"""
     try:
         service = CameraService(db_manager)
         image_info = service.get_latest_image_info(camera_id)
-        return image_info
+        return ImageInfoResponse(**image_info)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to fetch latest image")
 
 
-@router.get("/cameras/{camera_id}")
+@router.get("/cameras/{camera_id}", response_model=CameraDetailResponse)
 async def get_camera_detail(
     camera_id: str, 
     hours: Optional[int] = 24,
@@ -65,11 +80,14 @@ async def get_camera_detail(
         raise HTTPException(status_code=404, detail=f"Camera {camera_id} not found")
     
     # Get historical data
-    history = service.get_camera_history(camera_id, hours)
+    history_data = service.get_camera_history(camera_id, hours)
     
-    return {
-        "camera": current_camera,
-        "history": history,
-        "history_hours": hours,
-        "history_count": len(history)
-    }
+    camera = CameraResponse(**current_camera)
+    history = [HistoryItemResponse(**item) for item in history_data]
+    
+    return CameraDetailResponse(
+        camera=camera,
+        history=history,
+        history_hours=hours,
+        history_count=len(history)
+    )
