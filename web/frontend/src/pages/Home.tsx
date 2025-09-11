@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import FogMap from '../components/FogMap';
 import Sidebar from '../components/Sidebar';
+import { ErrorDisplay } from '../components/ErrorDisplay';
 import { useAppData, useAppActions } from '../context';
 import { API_BASE_URL } from '../services/api';
 
@@ -51,15 +52,13 @@ const Home: React.FC = () => {
         {/* Error overlay */}
         {error && webcams.length === 0 && (
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center" style={{ zIndex: 1000 }}>
-            <div className="text-center text-white">
-              <h2 className="text-2xl font-bold mb-4">Unable to Load Fog Data</h2>
-              <p className="text-blue-100 mb-6">{error}</p>
-              <button 
-                onClick={refreshData} 
-                className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
-              >
-                Try Again
-              </button>
+            <div className="max-w-md mx-4">
+              <ErrorDisplay
+                error={error}
+                onRetry={refreshData}
+                variant="overlay"
+                className="bg-white/95 backdrop-blur-sm border-white/20"
+              />
             </div>
           </div>
         )}

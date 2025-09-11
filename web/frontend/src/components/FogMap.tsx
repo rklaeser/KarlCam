@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { SF_CENTER, SF_BOUNDS } from '../utils/leaflet-config';
 import { useCameraImages } from '../hooks/useCameraImages';
+import { ErrorBoundaryWrapper } from './ErrorBoundary';
 import CameraMarker from './Map/CameraMarker';
 import FogLegend from './Map/FogLegend';
 import TimestampIndicator from './Map/TimestampIndicator';
@@ -68,18 +69,24 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
           })}
       </MapContainer>
       
-      <FogLegend />
+      <ErrorBoundaryWrapper>
+        <FogLegend />
+      </ErrorBoundaryWrapper>
       
-      <TimestampIndicator imageTimestamps={imageTimestamps} />
+      <ErrorBoundaryWrapper>
+        <TimestampIndicator imageTimestamps={imageTimestamps} />
+      </ErrorBoundaryWrapper>
       
-      <CameraModal
-        isOpen={isModalOpen}
-        webcam={selectedWebcam}
-        cameras={cameras}
-        onClose={closeModal}
-        fetchImage={fetchImage}
-        cachedImageUrl={selectedWebcam ? markerImages.get(selectedWebcam.id) || undefined : undefined}
-      />
+      <ErrorBoundaryWrapper>
+        <CameraModal
+          isOpen={isModalOpen}
+          webcam={selectedWebcam}
+          cameras={cameras}
+          onClose={closeModal}
+          fetchImage={fetchImage}
+          cachedImageUrl={selectedWebcam ? markerImages.get(selectedWebcam.id) || undefined : undefined}
+        />
+      </ErrorBoundaryWrapper>
     </div>
   );
 };
