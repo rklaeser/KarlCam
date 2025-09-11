@@ -88,14 +88,7 @@ const HowItWorks: React.FC = () => {
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></span>
                 <div>
-                  <strong>Can satellite images do better?</strong> Are NOAA satellite images high enough resolution, frequent enough to be useful? Do they do better than KarlCam? 
-                  Would they aid training? See <a href="https://fog.today" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">fog.today</a> for an example.
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-2 h-2 bg-purple-500 rounded-full mt-2"></span>
-                <div>
-                  <strong>Add cameras:</strong> <a href="https://www.windy.com/-Webcams-San-Francisco-Marina-District/webcams/1693167474?37.796,-122.461,12" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Windy</a> has a list of SF cameras, I'll add a few more outside SF and keep looking for others in SF.
+                  <strong>Add more cameras:</strong> <a href="https://www.windy.com/-Webcams-San-Francisco-Marina-District/webcams/1693167474?37.796,-122.461,12" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Windy</a> has a list of SF cameras, I'll add a few more outside SF and keep looking for others in SF.
                 </div>
               </li>
             </ul>
