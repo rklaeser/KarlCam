@@ -36,11 +36,10 @@ ENV DATA_DIR=/app/data
 
 # Health check for Cloud Run
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8001}/api/health || exit 1
+    CMD curl -f http://localhost:8001/api/health || exit 1
 
 # Set working directory to admin/backend module
 WORKDIR /app/admin/backend
 
 # Run the FastAPI backend for production
-# Use PORT environment variable for Cloud Run compatibility
-CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}
+CMD python -m uvicorn main:app --host 0.0.0.0 --port 8001
