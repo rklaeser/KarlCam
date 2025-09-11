@@ -35,6 +35,9 @@ class GeminiLabeler(BaseLabeler):
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             try:
+                # Clean the API key to remove any whitespace or invisible characters
+                api_key = api_key.strip()
+                
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
                 self.gemini_model = genai.GenerativeModel(model_name)
@@ -58,28 +61,47 @@ class GeminiLabeler(BaseLabeler):
             "weather_conditions": ["list", "of", "observed", "conditions"]
         }"""
         
-        try:
-            response = self.gemini_model.generate_content([prompt, image])
-            
-            json_str = response.text
-            # Extract JSON if wrapped in markdown
-            json_match = re.search(r'```json\s*(.*?)\s*```', json_str, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-            
-            data = json.loads(json_str)
-            
-            return self._create_success_result(
-                fog_score=float(data.get("fog_score", 0)),
-                fog_level=data.get("fog_level", "Unknown"),
-                confidence=float(data.get("confidence", 0)),
-                reasoning=data.get("reasoning", ""),
-                visibility_estimate=data.get("visibility_estimate", "Unknown"),
-                weather_conditions=data.get("weather_conditions", [])
-            )
-            
-        except Exception as e:
-            return self._create_error_result(e)
+        import time
+        
+        # Retry logic for API failures
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.gemini_model.generate_content([prompt, image])
+                
+                json_str = response.text
+                # Extract JSON if wrapped in markdown
+                json_match = re.search(r'```json\s*(.*?)\s*```', json_str, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                
+                data = json.loads(json_str)
+                
+                return self._create_success_result(
+                    fog_score=float(data.get("fog_score", 0)),
+                    fog_level=data.get("fog_level", "Unknown"),
+                    confidence=float(data.get("confidence", 0)),
+                    reasoning=data.get("reasoning", ""),
+                    visibility_estimate=data.get("visibility_estimate", "Unknown"),
+                    weather_conditions=data.get("weather_conditions", [])
+                )
+                
+            except Exception as e:
+                error_msg = str(e)
+                self.logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {error_msg}")
+                
+                # Don't retry on certain errors
+                if "API_KEY" in error_msg.upper() or "authentication" in error_msg.lower():
+                    return self._create_error_result(e)
+                
+                # If this is the last attempt, return error
+                if attempt == max_retries - 1:
+                    return self._create_error_result(e)
+                
+                # Wait before retrying
+                time.sleep(retry_delay * (attempt + 1))
 
 if __name__ == "__main__":
     import sys
