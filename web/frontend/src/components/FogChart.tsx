@@ -8,9 +8,9 @@ import {
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  TooltipItem
 } from 'chart.js';
-// @ts-ignore
 import { Line } from 'react-chartjs-2';
 
 ChartJS.register(
@@ -64,13 +64,6 @@ const FogChart: React.FC<FogChartProps> = ({ history }) => {
   const fogScores = sortedHistory.map(entry => entry.fog_score);
 
   // Create color gradient based on fog levels
-  const backgroundColors = fogScores.map(score => {
-    if (score < 20) return 'rgba(40, 167, 69, 0.2)';   // Green
-    if (score < 40) return 'rgba(255, 193, 7, 0.2)';   // Yellow
-    if (score < 60) return 'rgba(253, 126, 20, 0.2)';  // Orange
-    if (score < 80) return 'rgba(220, 53, 69, 0.2)';   // Red
-    return 'rgba(111, 66, 193, 0.2)';                  // Purple
-  });
 
   const borderColors = fogScores.map(score => {
     if (score < 20) return 'rgba(40, 167, 69, 1)';
@@ -110,13 +103,13 @@ const FogChart: React.FC<FogChartProps> = ({ history }) => {
       },
       tooltip: {
         callbacks: {
-          title: (context: any) => {
+          title: (context: TooltipItem<'line'>[]) => {
             const index = context[0].dataIndex;
             const entry = sortedHistory[index];
             const date = new Date(entry.sf_time || entry.timestamp);
             return date.toLocaleString();
           },
-          label: (context: any) => {
+          label: (context: TooltipItem<'line'>) => {
             const index = context.dataIndex;
             const entry = sortedHistory[index];
             return [
@@ -148,7 +141,7 @@ const FogChart: React.FC<FogChartProps> = ({ history }) => {
           color: 'rgba(0, 0, 0, 0.1)'
         },
         ticks: {
-          callback: function(value: any) {
+          callback: function(value: string | number) {
             return value + '/100';
           }
         }

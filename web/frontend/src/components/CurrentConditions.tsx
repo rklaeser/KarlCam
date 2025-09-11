@@ -53,7 +53,7 @@ const CurrentConditions: React.FC<CurrentConditionsProps> = ({ conditions, loadi
     }
   };
 
-  const getFogDescription = (fogLevel: string, fogScore: number): string => {
+  const getFogDescription = (_fogLevel: string, fogScore: number): string => {
     if (fogScore < 20) {
       return 'Crystal clear visibility with blue skies';
     } else if (fogScore < 40) {

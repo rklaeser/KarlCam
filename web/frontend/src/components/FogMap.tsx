@@ -80,8 +80,8 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
               <CameraMarker
                 key={webcam.id}
                 webcam={webcam}
-                cameraData={cameraData}
-                imageUrl={markerImages.get(webcam.id)}
+                cameraData={cameraData || undefined}
+                imageUrl={markerImages.get(webcam.id) || undefined}
                 isLoading={loadingImages.has(webcam.id)}
                 onMarkerClick={handleMarkerClick}
               />
@@ -99,7 +99,7 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
         cameras={cameras}
         onClose={closeModal}
         fetchImage={fetchImage}
-        cachedImageUrl={selectedWebcam ? markerImages.get(selectedWebcam.id) : undefined}
+        cachedImageUrl={selectedWebcam ? markerImages.get(selectedWebcam.id) || undefined : undefined}
       />
     </div>
   );

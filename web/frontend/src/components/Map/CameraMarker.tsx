@@ -26,8 +26,8 @@ interface CameraConditions {
 
 interface CameraMarkerProps {
   webcam: Webcam;
-  cameraData?: CameraConditions;
-  imageUrl?: string;
+  cameraData?: CameraConditions | undefined;
+  imageUrl?: string | undefined;
   isLoading: boolean;
   onMarkerClick: (webcam: Webcam) => void;
 }

@@ -10,7 +10,7 @@ export const getFogColor = (fogScore: number, hasData: boolean = true): string =
 };
 
 export const createMarkerIcon = (
-  webcamId: string, 
+  _webcamId: string, 
   fogScore: number, 
   hasData: boolean = true,
   imageUrl?: string,

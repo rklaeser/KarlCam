@@ -29,7 +29,7 @@ interface CameraModalProps {
   cameras: CameraConditions[];
   onClose: () => void;
   fetchImage: (webcamId: string) => Promise<string | null>;
-  cachedImageUrl?: string;
+  cachedImageUrl?: string | undefined;
 }
 
 const CameraModal: React.FC<CameraModalProps> = ({
