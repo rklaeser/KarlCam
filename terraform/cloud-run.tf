@@ -44,7 +44,7 @@ resource "google_cloud_run_v2_service" "karlcam_api" {
       }
 
       ports {
-        container_port = 8002
+        container_port = 8000
       }
     }
 

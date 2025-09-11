@@ -8,7 +8,7 @@ const getApiUrl = (environment: string | undefined): string => {
       return 'https://api.karl.cam';
     case 'development':
     default:
-      return 'http://localhost:8002';
+      return 'http://localhost:8000';
   }
 };
 

@@ -5,7 +5,7 @@ help:
 	@echo "Available targets:"
 	@echo ""
 	@echo "Development Commands:"
-	@echo "  start-api            - Setup and start the API server (http://localhost:8002)"
+	@echo "  start-api            - Setup and start the API server (http://localhost:8000)"
 	@echo "  start-frontend       - Setup and start the main frontend development server (http://localhost:3000)"
 	@echo "  start-admin-backend  - Setup and start the admin backend server (http://localhost:8001)"
 	@echo "  start-admin-frontend - Setup and start the admin frontend development server (http://localhost:3001)"
@@ -33,7 +33,7 @@ start-api:
 	fi
 	cd web/api && python3 -m venv venv || true
 	cd web/api && source venv/bin/activate && pip install -r requirements.txt
-	@echo "Starting API server on http://localhost:8002"
+	@echo "Starting API server on http://localhost:8000"
 	@echo "Press Ctrl+C to stop the server"
 	cd web && source api/venv/bin/activate && exec python -m api.main
 

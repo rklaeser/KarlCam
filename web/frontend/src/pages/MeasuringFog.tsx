@@ -77,9 +77,9 @@ const MeasuringFog: React.FC = () => {
           
           <div className="prose prose-lg max-w-none text-gray-600 mb-8">
             <p className="leading-relaxed mb-4">
-              Even on the foggiest day of this historically cold San Francisco summer the familiar sound of Waymos can be heard buzzing along the streets. 
-              How do they manage to avoid running over pedestrians obscured by the fog? <a href="https://waymo.com/blog/2021/11/a-fog-blog" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">With radar sensors that can see through it</a>. 
-              Cameras can't do that and it's no small controversy that Tesla self driving has rejected radar in favor of cameras (which are cheaper). 
+              Even on the foggiest day of this historically cold San Francisco summer, the familiar sound of Waymos can be heard buzzing along the streets. 
+              How do they manage in the fog? <a href="https://waymo.com/blog/2021/11/a-fog-blog" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">With radar sensors that can see through it</a>. 
+              Cameras can't do that, which is why, it's no small controversy that Tesla has rejected radar in favor of cameras (which are cheaper) for its self driving solution. 
             </p>
             
             <div className="my-6 flex justify-center">
@@ -95,8 +95,11 @@ const MeasuringFog: React.FC = () => {
             </p>
             
             <p className="leading-relaxed mb-4">
-            Tesla thinks they can make up the difference with software. This project attempts something similar though the stakes are lower 
-            and the problem easier because the cameras aren't in motion.
+            Tesla thinks they can make up the difference with software. karl.cam attempts the same. 
+            In a space where the state of the art uses lasers, karl.cam, like Tesla, leans on cameras because 
+            they are more convenient. Speficially because publicly available webcams are everywhere, making them perfect for local fog measurement. My focus at first
+            will be on building karl.cam in Google Cloud and will therefore start by offloading the entire question of fog measurement to an LLM.
+            But once the karl.cam system is up and running, I hope to use it to teach myself more mature image analysis approaches. Here's how I'm approaching the problem at the start.
             </p>
             
             <div className="bg-gray-50 border-l-4 border-gray-500 p-4 mb-6">
