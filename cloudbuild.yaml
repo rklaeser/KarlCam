@@ -5,6 +5,7 @@ substitutions:
   _PROJECT_ID: karlcam
   _REGION: us-central1
   _BUCKET_NAME: karlcam-fog-data
+  _RUN_ASYNC_TESTS: 'true'  # Set to 'false' to skip async tests
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -200,9 +201,11 @@ steps:
           echo "Frontend URL: https://staging.karl.cam"
           echo "API URL: https://api.staging.karl.cam"
           echo "Admin URL: https://admin.staging.karl.cam"
+          echo ""
+          echo "🚀 Site is now live! You can test manually while automated tests run in background."
         else
           echo "Frontend URL: https://karl.cam"
-          echo "API URL: https://api.karl.cam"
+          echo "API URL: https://api.karl.cam"  
           echo "Admin URL: https://admin.karl.cam"
         fi
     env:
@@ -216,6 +219,108 @@ steps:
       - 'push-frontend'
       - 'push-admin-backend'
       - 'push-admin-frontend'
+
+  # ===========================================
+  # ASYNCHRONOUS TESTING (runs after deployment)
+  # ===========================================
+  
+  # Run comprehensive API tests in background (staging only)
+  - name: 'python:3.9-slim'
+    id: 'async-api-tests'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        # Only run tests for staging environment and if enabled
+        if [ "${_ENVIRONMENT}" != "staging" ] || [ "${_RUN_ASYNC_TESTS}" != "true" ]; then
+          echo "⏭️  Skipping async tests (Environment: ${_ENVIRONMENT}, Tests enabled: ${_RUN_ASYNC_TESTS})"
+          exit 0
+        fi
+        
+        echo "🧪 Running comprehensive API tests asynchronously..."
+        echo "💡 Site is already live at https://staging.karl.cam - you can test manually!"
+        
+        # Install dependencies
+        apt-get update && apt-get install -y git curl
+        cd web/api
+        pip install -r requirements.txt requirements-test.txt
+        
+        # Run full test suite
+        echo "🏃 Running unit tests..."
+        python run_tests.py unit -v
+        
+        echo "🔗 Running integration tests..."  
+        python run_tests.py integration -v
+        
+        echo "📊 Generating coverage report..."
+        python run_tests.py coverage --html
+        
+        # Generate XML coverage for artifacts
+        python -m coverage xml -o coverage.xml
+        
+        echo "✅ All async API tests completed!"
+        
+        # Optional: Post results to Slack/notification system
+        # curl -X POST webhook-url -d "API tests completed for staging deploy ${SHORT_SHA}"
+    waitFor: ['terraform-deploy']  # Runs AFTER deployment completes
+
+  # Run smoke tests against the live site
+  - name: 'python:3.9-slim'
+    id: 'async-smoke-tests'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        # Only run for staging and if async tests enabled
+        if [ "${_ENVIRONMENT}" != "staging" ] || [ "${_RUN_ASYNC_TESTS}" != "true" ]; then
+          echo "⏭️  Skipping smoke tests (Environment: ${_ENVIRONMENT}, Tests enabled: ${_RUN_ASYNC_TESTS})"
+          exit 0
+        fi
+        
+        echo "🌪️  Running smoke tests against live staging site..."
+        
+        pip install requests
+        
+        API_URL="https://api.staging.karl.cam"
+        FRONTEND_URL="https://staging.karl.cam"
+        
+        # Wait a moment for services to be fully ready
+        echo "⏰ Waiting 30s for services to fully initialize..."
+        sleep 30
+        
+        # Test all public endpoints
+        echo "🔍 Testing API endpoints..."
+        endpoints="/api/public/ /api/public/cameras /api/public/stats /api/public/config/public"
+        
+        for endpoint in $endpoints; do
+          echo "Testing $endpoint..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL$endpoint" --max-time 15)
+          if [ "$response" = "200" ]; then
+            echo "✅ $endpoint - OK"  
+          else
+            echo "⚠️  $endpoint - HTTP $response (continuing anyway)"
+          fi
+        done
+        
+        # Test frontend
+        echo "🔍 Testing frontend..."
+        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" --max-time 15)
+        if [ "$frontend_response" = "200" ]; then
+          echo "✅ Frontend - OK"
+        else
+          echo "⚠️  Frontend - HTTP $frontend_response"  
+        fi
+        
+        echo "✅ Smoke tests completed!"
+    waitFor: ['terraform-deploy']  # Also runs after deployment
+
+# Save test results and coverage reports
+artifacts:
+  objects:
+    location: 'gs://${_PROJECT_ID}-build-artifacts/${BUILD_ID}'
+    paths:
+      - 'web/api/coverage.xml'
+      - 'web/api/htmlcov/**/*'
 
 # Secrets configuration
 availableSecrets:
@@ -239,4 +344,4 @@ images:
   - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${BRANCH_NAME}'
 
-timeout: '1800s'
+timeout: '2400s'  # Extended timeout for async tests

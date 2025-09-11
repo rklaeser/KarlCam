@@ -1,4 +1,4 @@
-.PHONY: help start-api start-frontend start-admin-backend start-admin-frontend start-collect start-sql clean
+.PHONY: help start-api start-frontend start-admin-backend start-admin-frontend start-collect start-sql clean test test-unit test-integration test-coverage test-ci
 
 # Default target
 help:
@@ -12,6 +12,13 @@ help:
 	@echo "  start-collect        - Setup and run the dual scoring collector locally"
 	@echo "  start-sql           - Start Cloud SQL Proxy for local development"
 	@echo "  clean               - Remove virtual environments and node_modules"
+	@echo ""
+	@echo "Testing Commands:"
+	@echo "  test                - Run all tests"
+	@echo "  test-unit           - Run unit tests only"
+	@echo "  test-integration    - Run integration tests only"
+	@echo "  test-coverage       - Run tests with coverage report"
+	@echo "  test-ci             - Run full CI test pipeline"
 
 # ========================================
 # Development Commands
@@ -103,3 +110,34 @@ clean:
 	rm -rf web/frontend/node_modules
 	rm -rf admin/frontend/node_modules
 	@echo "Cleanup complete!"
+
+# ========================================
+# Testing Commands
+# ========================================
+
+# Run all tests
+test:
+	@echo "Running all API tests..."
+	cd web/api && python run_tests.py all
+
+# Run unit tests only
+test-unit:
+	@echo "Running unit tests..."
+	cd web/api && python run_tests.py unit
+
+# Run integration tests only
+test-integration:
+	@echo "Running integration tests..."
+	cd web/api && python run_tests.py integration
+
+# Run tests with coverage report
+test-coverage:
+	@echo "Running tests with coverage report..."
+	cd web/api && python run_tests.py coverage --html
+	@echo "📊 Coverage report available at web/api/htmlcov/index.html"
+
+# Run full CI test pipeline
+test-ci:
+	@echo "Running full CI test pipeline..."
+	cd web/api && python run_tests.py ci
+	@echo "🎉 CI pipeline completed successfully!"
