@@ -30,10 +30,10 @@ ENV PYTHONUNBUFFERED=1
 
 # Health check for Cloud Run
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Set working directory to app root for proper module imports
 WORKDIR /app
 
-# Run the FastAPI API for production
-CMD python -m uvicorn web.api.main:app --host 0.0.0.0 --port 8000
+# Run the FastAPI API for production (use PORT env var set by Cloud Run)
+CMD python -m uvicorn web.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
