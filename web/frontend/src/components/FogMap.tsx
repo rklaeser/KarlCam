@@ -6,28 +6,7 @@ import CameraMarker from './Map/CameraMarker';
 import FogLegend from './Map/FogLegend';
 import TimestampIndicator from './Map/TimestampIndicator';
 import CameraModal from './Map/CameraModal';
-
-interface Webcam {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  url: string;
-  video_url?: string;
-  description: string;
-  active: boolean;
-}
-
-interface CameraConditions {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  fog_score: number;
-  fog_level: string;
-  confidence: number;
-  active: boolean;
-}
+import { Webcam, CameraConditions } from '../types';
 
 interface FogMapProps {
   webcams: Webcam[];

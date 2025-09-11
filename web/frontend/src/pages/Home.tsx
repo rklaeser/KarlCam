@@ -1,89 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import FogMap from '../components/FogMap';
 import Sidebar from '../components/Sidebar';
-import api, { API_BASE_URL } from '../services/api';
-
-interface CameraConditions {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  timestamp: string;
-  fog_score: number;
-  fog_level: string;
-  confidence: number;
-  active: boolean;
-}
-
-interface Webcam {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  url: string;
-  description: string;
-  active: boolean;
-}
+import { useAppData, useAppActions } from '../context';
+import { API_BASE_URL } from '../services/api';
 
 const Home: React.FC = () => {
-  const [webcams, setWebcams] = useState<Webcam[]>([]);
-  const [cameras, setCameras] = useState<CameraConditions[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [systemStatus, setSystemStatus] = useState<{karlcam_mode: number} | null>(null);
   
-  // Check if we're in night mode based on system status
-  const isNightMode = () => {
-    return systemStatus?.karlcam_mode === 1;
-  };
+  // Get data and actions from context
+  const { 
+    cameras, 
+    webcams,
+    errors, 
+    isNightMode
+  } = useAppData();
+  
+  const { refreshData } = useAppActions();
 
-
-  useEffect(() => {
-    // Load map immediately, then load camera data
-    loadMapAndCameras();
-    // Refresh data every 5 minutes
-    const interval = setInterval(loadCamerasOnly, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadMapAndCameras = async () => {
-    try {
-      setError(null);
-      
-      // Load system status and webcam locations in parallel
-      const [statusRes, webcamsRes] = await Promise.all([
-        api.get('/api/system/status'),
-        api.get('/api/public/webcams')
-      ]);
-      
-      setSystemStatus(statusRes.data);
-      setWebcams(webcamsRes.data.webcams || []);
-      
-      // Load camera conditions only if not in night mode
-      if (statusRes.data.karlcam_mode !== 1) {
-        loadCamerasOnly();
-      }
-      
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load data. The service may be starting up.');
-    }
-  };
-
-  const loadCamerasOnly = async () => {
-    try {
-      const camerasRes = await api.get('/api/public/cameras');
-      setCameras(camerasRes.data.cameras || []);
-    } catch (err) {
-      console.error('Error loading camera conditions:', err);
-      // Don't show error for camera conditions - just log it
-    }
-  };
-
-  const refreshData = () => {
-    loadMapAndCameras();
-  };
-
+  // Use the global error or specific errors for display
+  const error = errors.global || errors.webcams || errors.systemStatus;
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex flex-col overflow-hidden">
@@ -130,7 +65,7 @@ const Home: React.FC = () => {
         )}
 
         {/* Night mode overlay - shown when system status indicates night mode */}
-        {!error && isNightMode() && (
+        {!error && isNightMode && (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-blue-900 flex items-center justify-center" style={{ zIndex: 1000 }}>
             <div className="text-center text-white max-w-md mx-auto px-6">
               <div className="text-6xl mb-6">🌙</div>

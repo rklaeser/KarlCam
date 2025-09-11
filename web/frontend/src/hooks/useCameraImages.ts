@@ -1,15 +1,5 @@
 import { useEffect, useState } from 'react';
-
-interface Webcam {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  url: string;
-  video_url?: string;
-  description: string;
-  active: boolean;
-}
+import { Webcam } from '../types';
 
 export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
   const [markerImages, setMarkerImages] = useState<Map<string, string>>(new Map());

@@ -1,52 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import React, { useState } from 'react';
 import CameraTable from '../components/CameraTable';
 import Sidebar from '../components/Sidebar';
-
-interface CameraConditions {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  timestamp: string;
-  fog_score: number;
-  fog_level: string;
-  confidence: number;
-  active: boolean;
-}
+import { useAppData, useAppActions } from '../context';
 
 const TableView: React.FC = () => {
-  const [cameras, setCameras] = useState<CameraConditions[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Get data and actions from context
+  const { 
+    cameras, 
+    loading, 
+    errors,
+    isInitialLoading 
+  } = useAppData();
+  
+  const { refreshData } = useAppActions();
 
-  useEffect(() => {
-    loadData();
-    // Refresh data every 5 minutes
-    const interval = setInterval(loadData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Use specific camera error or global error
+  const error = errors.cameras || errors.global;
+  const isLoading = loading.cameras || isInitialLoading;
 
-  const loadData = async () => {
-    try {
-      setError(null);
-      const camerasRes = await api.get('/api/public/cameras');
-      setCameras(camerasRes.data.cameras || []);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Failed to load fog data. The service may be starting up.');
-      setLoading(false);
-    }
-  };
-
-  const refreshData = () => {
-    setLoading(true);
-    loadData();
-  };
-
-  if (loading && cameras.length === 0) {
+  if (isLoading && cameras.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex flex-col">
         <div className="flex-1 flex items-center justify-center">
@@ -104,7 +78,7 @@ const TableView: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-800 mb-6">Camera Conditions</h1>
           <CameraTable 
             cameras={cameras}
-            loading={loading}
+            loading={isLoading}
           />
         </div>
       </main>

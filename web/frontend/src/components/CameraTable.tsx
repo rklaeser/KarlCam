@@ -1,16 +1,5 @@
 import React from 'react';
-
-interface CameraConditions {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  timestamp: string;
-  fog_score: number;
-  fog_level: string;
-  confidence: number;
-  active: boolean;
-}
+import { CameraConditions } from '../types';
 
 interface CameraTableProps {
   cameras: CameraConditions[];
@@ -56,7 +45,8 @@ const CameraTable: React.FC<CameraTableProps> = ({ cameras, loading }) => {
     }
   };
 
-  const formatTimestamp = (timestamp: string): string => {
+  const formatTimestamp = (timestamp: string | null): string => {
+    if (!timestamp) return 'No data';
     const date = new Date(timestamp);
     return date.toLocaleTimeString();
   };
