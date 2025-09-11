@@ -18,6 +18,10 @@ class Settings:
     VERSION: str = "2.0.0"
     API_PREFIX: str = "/api"
     
+    # Environment and debug settings
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    
     # Environment-specific (keep as env vars for deployment flexibility)
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     BUCKET_NAME: str = os.getenv("BUCKET_NAME")
