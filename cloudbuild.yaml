@@ -74,7 +74,7 @@ steps:
     args:
       - 'build'
       - '--build-arg'
-      - 'REACT_APP_ENVIRONMENT=${BRANCH_NAME}'
+      - 'REACT_APP_ENVIRONMENT=${_ENVIRONMENT}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-frontend:${SHORT_SHA}'
       - '-t'
@@ -90,7 +90,7 @@ steps:
     args:
       - 'build'
       - '--build-arg'
-      - 'REACT_APP_ENVIRONMENT=${BRANCH_NAME}'
+      - 'REACT_APP_ENVIRONMENT=${_ENVIRONMENT}'
       - '-t'
       - 'gcr.io/${_PROJECT_ID}/karlcam-admin-frontend:${SHORT_SHA}'
       - '-t'
