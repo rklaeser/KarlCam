@@ -2,9 +2,10 @@
 FastAPI Review Backend for KarlCam
 Handles review workflow for Gemini-labeled images using Cloud Storage and SQL Database
 """
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 from enum import Enum
@@ -48,6 +49,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handlers
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Validation error",
+            "errors": exc.errors(),
+            "error_code": "VALIDATION_ERROR",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all other exceptions"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error_code": "INTERNAL_ERROR",
+            "timestamp": datetime.now().isoformat(),
+            "path": request.url.path
+        }
+    )
 
 # Configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')

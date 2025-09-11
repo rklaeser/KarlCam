@@ -5,11 +5,15 @@ FastAPI server that reads historical camera data assessed by Gemini from Cloud S
 """
 
 import logging
-from fastapi import FastAPI
+from datetime import datetime
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 from .core.config import settings
 from .routers import health, cameras, images, system
+from .utils.exceptions import KarlCamException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +30,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handlers
+@app.exception_handler(KarlCamException)
+async def karlcam_exception_handler(request: Request, exc: KarlCamException):
+    """Handle custom KarlCam exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "error_code": exc.error_code,
+            "timestamp": datetime.now().isoformat(),
+            "path": request.url.path
+        }
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Validation error",
+            "errors": exc.errors(),
+            "error_code": "VALIDATION_ERROR",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all other exceptions"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error_code": "INTERNAL_ERROR",
+            "timestamp": datetime.now().isoformat(),
+            "path": request.url.path
+        }
+    )
 
 # Include routers
 app.include_router(health.router)

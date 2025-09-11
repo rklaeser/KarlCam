@@ -57,10 +57,9 @@ async def get_latest_image_url(camera_id: str, db_manager=Depends(get_db_manager
         service = CameraService(db_manager)
         image_info = service.get_latest_image_info(camera_id)
         return ImageInfoResponse(**image_info)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch latest image")
+        # Let global exception handlers handle custom exceptions
+        raise
 
 
 @router.get("/cameras/{camera_id}", response_model=CameraDetailResponse)

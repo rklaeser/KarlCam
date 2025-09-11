@@ -2,7 +2,7 @@
 Common response schemas for KarlCam Fog API
 """
 from typing import List, Dict, Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
@@ -116,3 +116,19 @@ class SystemStatusUpdateResponse(BaseModel):
     karlcam_mode: int
     updated_by: str
     timestamp: str
+
+
+class ErrorResponse(BaseModel):
+    """Standard error response schema"""
+    detail: str
+    error_code: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+    path: Optional[str] = None
+
+
+class ValidationErrorResponse(BaseModel):
+    """Validation error response schema"""
+    detail: str = "Validation error"
+    error_code: str = "VALIDATION_ERROR"
+    errors: List[Dict[str, Any]]
+    timestamp: datetime = Field(default_factory=datetime.now)

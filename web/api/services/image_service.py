@@ -4,6 +4,7 @@ Image service containing business logic for image operations
 import logging
 from google.cloud import storage
 from fastapi import HTTPException
+from ..utils.exceptions import ImageNotFoundException, CloudStorageError
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +27,14 @@ class ImageService:
             blob = bucket.blob(f"raw_images/{filename}")
             
             if not blob.exists():
-                raise HTTPException(status_code=404, detail="Image not found")
+                raise ImageNotFoundException(filename)
             
             # Return direct public GCS URL
             direct_url = f"https://storage.googleapis.com/{self.bucket_name}/raw_images/{filename}"
             return direct_url
             
-        except HTTPException:
+        except ImageNotFoundException:
             raise
         except Exception as e:
             logger.error(f"Error getting image URL {filename}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to get image URL")
+            raise CloudStorageError(f"Failed to get image URL for {filename}")

@@ -11,6 +11,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from db.manager import DatabaseManager
+from ..utils.exceptions import (
+    CameraNotFoundException,
+    NoImagesFoundError,
+    DatabaseConnectionError,
+    DataProcessingError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +77,7 @@ class CameraService:
                     
         except Exception as e:
             logger.error(f"Error fetching camera data: {e}")
-            return []
+            raise DataProcessingError("Failed to fetch camera data")
     
     def get_webcam_list(self) -> List[Dict]:
         """Get all webcams from database"""
@@ -94,7 +100,7 @@ class CameraService:
                     
         except Exception as e:
             logger.error(f"Error fetching webcams: {e}")
-            return []
+            raise DataProcessingError("Failed to fetch webcam list")
     
     def get_camera_history(self, camera_id: str, hours: int = 24) -> List[Dict]:
         """Get historical data for a specific camera"""
@@ -124,7 +130,7 @@ class CameraService:
                     
         except Exception as e:
             logger.error(f"Error fetching camera history: {e}")
-            return []
+            raise DataProcessingError(f"Failed to fetch camera history for {camera_id}")
     
     def get_latest_image_info(self, camera_id: str) -> Dict:
         """Get the latest collected image info for a camera"""
@@ -133,7 +139,7 @@ class CameraService:
             recent_images = self.db_manager.get_recent_images(webcam_id=camera_id, days=30)
             
             if not recent_images:
-                raise ValueError(f"No collected images found for camera {camera_id}")
+                raise NoImagesFoundError(camera_id)
             
             # Get the most recent image (it's a dictionary, not a model object)
             latest_image = recent_images[0]
@@ -154,6 +160,8 @@ class CameraService:
                 "age_hours": (datetime.now().replace(tzinfo=latest_image['timestamp'].tzinfo) - latest_image['timestamp']).total_seconds() / 3600
             }
                     
+        except NoImagesFoundError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching latest image for {camera_id}: {e}")
-            raise
+            raise DataProcessingError(f"Failed to fetch latest image for {camera_id}")
