@@ -1,7 +1,10 @@
 """
 Camera endpoints for KarlCam Fog API
+
+This module provides endpoints for accessing fog detection data from cameras
+positioned around the San Francisco Bay Area.
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Path, Query
 from typing import Optional
 from datetime import datetime
 
@@ -18,10 +21,120 @@ from ..schemas.common import (
     HistoryItemResponse
 )
 
-router = APIRouter(prefix="/public", tags=["cameras"])
+router = APIRouter(
+    prefix="/public", 
+    tags=["Cameras"],
+    responses={
+        500: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Internal server error",
+                        "error_code": "INTERNAL_ERROR",
+                        "timestamp": "2024-01-10T08:30:00Z",
+                        "path": "/api/public/cameras"
+                    }
+                }
+            }
+        },
+        503: {
+            "description": "Service temporarily unavailable",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Database connection unavailable",
+                        "error_code": "SERVICE_UNAVAILABLE", 
+                        "timestamp": "2024-01-10T08:30:00Z"
+                    }
+                }
+            }
+        }
+    }
+)
 
 
-@router.get("/cameras", response_model=CamerasListResponse)
+@router.get(
+    "/cameras",
+    response_model=CamerasListResponse,
+    summary="Get all cameras with current fog status",
+    description="""
+    Returns a list of all active cameras with their current fog detection status.
+    
+    This endpoint provides real-time fog assessments from strategically positioned
+    cameras around the San Francisco Bay Area. Each camera includes:
+    
+    * **Geographic coordinates** for mapping and visualization
+    * **Current fog score** (0-100) with AI-generated assessment
+    * **Qualitative fog level** (Clear, Light Fog, Moderate Fog, Heavy Fog, Very Heavy Fog)
+    * **Confidence score** indicating AI certainty in the assessment
+    * **Weather detection** status and additional metadata
+    * **Timestamp** of the most recent assessment
+    
+    ## Data Freshness
+    
+    Fog assessments are updated approximately every **10 minutes** during daylight hours.
+    The system continuously monitors weather conditions and provides fresh data for
+    real-time applications.
+    
+    ## Use Cases
+    
+    * Weather monitoring dashboards
+    * Transportation planning systems
+    * Photography and tourism applications
+    * Academic research on fog patterns
+    * Maritime and aviation weather services
+    
+    ## Performance
+    
+    This endpoint is **cached for 60 seconds** to improve response times while maintaining
+    data freshness for high-traffic applications.
+    """,
+    response_description="List of cameras with current fog detection data and metadata",
+    responses={
+        200: {
+            "description": "Successful response with camera data",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "cameras": [
+                            {
+                                "id": "golden-gate-north",
+                                "name": "Golden Gate Bridge - North View", 
+                                "lat": 37.8199,
+                                "lon": -122.4783,
+                                "description": "Camera positioned on the north side of Golden Gate Bridge",
+                                "fog_score": 75,
+                                "fog_level": "Heavy Fog",
+                                "confidence": 0.92,
+                                "weather_detected": True,
+                                "weather_confidence": 0.88,
+                                "timestamp": "2024-01-10T08:30:00Z",
+                                "active": True
+                            },
+                            {
+                                "id": "alcatraz-view",
+                                "name": "Alcatraz Island View",
+                                "lat": 37.8270,
+                                "lon": -122.4230,
+                                "description": "View of Alcatraz Island and surrounding bay",
+                                "fog_score": 15,
+                                "fog_level": "Clear",
+                                "confidence": 0.95,
+                                "weather_detected": False,
+                                "weather_confidence": 0.82,
+                                "timestamp": "2024-01-10T08:28:00Z",
+                                "active": True
+                            }
+                        ],
+                        "timestamp": "2024-01-10T08:30:15Z",
+                        "count": 2
+                    }
+                }
+            }
+        }
+    }
+)
 async def get_cameras(db_manager=Depends(get_db_manager)):
     """Get latest fog assessment for all cameras"""
     service = CameraService(db_manager)
@@ -63,10 +176,98 @@ async def get_latest_image_url(camera_id: str, db_manager=Depends(get_db_manager
         raise
 
 
-@router.get("/cameras/{camera_id}", response_model=CameraDetailResponse)
+@router.get(
+    "/cameras/{camera_id}",
+    response_model=CameraDetailResponse,
+    summary="Get camera details with historical fog data",
+    description="""
+    Returns detailed information about a specific camera including current fog status
+    and historical fog detection data over a specified time period.
+    
+    This endpoint combines the current fog assessment with historical trends to provide
+    comprehensive fog pattern analysis for a single camera location.
+    
+    ## Historical Data
+    
+    * **Default period**: 24 hours of history
+    * **Maximum period**: 168 hours (1 week)
+    * **Data points**: Individual fog assessments over time
+    * **Resolution**: Approximately one assessment every 10 minutes
+    
+    ## Use Cases
+    
+    * Trend analysis for specific locations
+    * Historical fog pattern research  
+    * Time-series data for weather applications
+    * Location-specific fog forecasting
+    * Detailed camera performance monitoring
+    
+    ## Performance Notes
+    
+    Large history requests may take longer to process. For applications requiring
+    extensive historical data, consider making multiple smaller requests or using
+    the paginated history endpoints.
+    """,
+    response_description="Camera details with current status and historical fog data",
+    responses={
+        404: {
+            "description": "Camera not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Camera golden-gate-south not found",
+                        "error_code": "CAMERA_NOT_FOUND",
+                        "timestamp": "2024-01-10T08:30:00Z",
+                        "path": "/api/public/cameras/golden-gate-south"
+                    }
+                }
+            }
+        },
+        200: {
+            "description": "Successful response with camera details and history",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "camera": {
+                            "id": "golden-gate-north",
+                            "name": "Golden Gate Bridge - North View",
+                            "lat": 37.8199,
+                            "lon": -122.4783,
+                            "fog_score": 75,
+                            "fog_level": "Heavy Fog",
+                            "confidence": 0.92,
+                            "timestamp": "2024-01-10T08:30:00Z"
+                        },
+                        "history": [
+                            {
+                                "fog_score": 65,
+                                "fog_level": "Moderate Fog",
+                                "confidence": 0.89,
+                                "timestamp": "2024-01-10T08:20:00Z",
+                                "reasoning": "Moderate fog visible across the Golden Gate with some clear patches"
+                            }
+                        ],
+                        "history_hours": 24,
+                        "history_count": 144
+                    }
+                }
+            }
+        }
+    }
+)
 async def get_camera_detail(
-    camera_id: str, 
-    hours: Optional[int] = None,
+    camera_id: str = Path(
+        ...,
+        description="Unique camera identifier",
+        example="golden-gate-north"
+    ), 
+    hours: Optional[int] = Query(
+        None,
+        ge=1,
+        le=168,
+        description="Hours of historical data to include (default: 24, max: 168)",
+        example=24
+    ),
     db_manager=Depends(get_db_manager)
 ):
     """Get detailed information and history for a specific camera"""

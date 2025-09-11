@@ -1,5 +1,8 @@
 """
 Configuration endpoints for KarlCam Fog API
+
+This module provides endpoints for accessing system configuration settings
+and parameters.
 """
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
@@ -11,10 +14,85 @@ from ..schemas.common import (
     DefaultLocationResponse
 )
 
-router = APIRouter(prefix="/config", tags=["configuration"])
+router = APIRouter(
+    prefix="/config", 
+    tags=["Configuration"],
+    responses={
+        500: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Internal server error",
+                        "error_code": "INTERNAL_ERROR",
+                        "timestamp": "2024-01-10T08:30:00Z"
+                    }
+                }
+            }
+        }
+    }
+)
 
 
-@router.get("/public", response_model=PublicConfigResponse)
+@router.get(
+    "/public",
+    response_model=PublicConfigResponse,
+    summary="Get public configuration settings",
+    description="""
+    Returns public configuration settings that can be safely shared with client applications.
+    
+    This endpoint provides essential configuration parameters that client applications
+    need to properly integrate with the KarlCam API, including fog detection thresholds,
+    default values, and system parameters.
+    
+    ## Configuration Categories
+    
+    * **Application Info**: Name, version, and environment details
+    * **Fog Detection**: Threshold values and classification parameters
+    * **Default Location**: San Francisco Bay Area center coordinates
+    * **Time Settings**: Default history periods and statistical windows
+    * **API Structure**: Endpoint prefixes and versioning information
+    
+    ## Use Cases
+    
+    * Client application initialization and configuration
+    * Dynamic threshold adjustment in UI components
+    * Default parameter setup for API requests
+    * System compatibility verification
+    * Geographic map centering and bounds
+    
+    ## Data Safety
+    
+    This endpoint only exposes **non-sensitive configuration** values.
+    No authentication credentials, internal URLs, or sensitive system
+    parameters are included in the response.
+    """,
+    response_description="Public configuration settings safe for client use",
+    responses={
+        200: {
+            "description": "Public configuration retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "app_name": "KarlCam Fog API",
+                        "version": "2.0.0", 
+                        "environment": "production",
+                        "fog_detection_threshold": 20,
+                        "foggy_conditions_threshold": 50,
+                        "default_location": {
+                            "name": "San Francisco",
+                            "latitude": 37.7749,
+                            "longitude": -122.4194
+                        },
+                        "default_history_hours": 24,
+                        "stats_period_hours": 24,
+                        "api_prefix": "/api"
+                    }
+                }
+            }
+        }
+    }
+)
 async def get_public_config():
     """Get public configuration settings (non-sensitive)"""
     return PublicConfigResponse(

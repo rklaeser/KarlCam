@@ -14,6 +14,7 @@ from fastapi.exceptions import RequestValidationError
 
 from .core.config import settings
 from .core.dependencies import get_db_pool, cleanup_dependencies
+from .core.openapi import setup_openapi
 from .routers import health, cameras, images, system, config
 from .utils.exceptions import KarlCamException
 
@@ -57,10 +58,131 @@ async def lifespan(app: FastAPI):
     cleanup_dependencies()
 
 
-# Create FastAPI app with lifecycle management
+# OpenAPI tags for endpoint organization
+tags_metadata = [
+    {
+        "name": "Health",
+        "description": "Health check and system monitoring endpoints",
+    },
+    {
+        "name": "Cameras",
+        "description": """
+        Camera operations including current fog detection data and historical information.
+        
+        Provides real-time fog assessments from webcams around San Francisco Bay Area,
+        with AI-powered analysis and historical data tracking.
+        """,
+    },
+    {
+        "name": "Images", 
+        "description": "Access to camera images and visual data",
+    },
+    {
+        "name": "System",
+        "description": """
+        System statistics, status monitoring, and administrative operations.
+        
+        Includes fog detection statistics, system health metrics, and configuration management.
+        """,
+    },
+    {
+        "name": "Configuration",
+        "description": "Public configuration settings and system parameters",
+    }
+]
+
+# Create FastAPI app with comprehensive metadata
 app = FastAPI(
-    title=settings.APP_NAME, 
+    title="KarlCam Fog Detection API",
+    description="""
+    ## 🌫️ Real-time Fog Detection for San Francisco Bay Area
+    
+    The **KarlCam API** provides comprehensive fog detection data from webcams positioned 
+    strategically around the San Francisco Bay Area. Our AI-powered system analyzes images 
+    in real-time to deliver accurate fog assessments and historical trends.
+    
+    ## ✨ Key Features
+    
+    * 📷 **Multiple Camera Locations** - Strategic placement across SF Bay Area
+    * 🤖 **AI-Powered Detection** - Advanced computer vision for fog analysis  
+    * 📊 **Historical Data** - Track fog patterns over time
+    * 🗺️ **Geographic Mapping** - Precise coordinates for visualization
+    * ⚡ **Real-time Updates** - Fresh data approximately every 10 minutes
+    * 📱 **Developer Friendly** - RESTful API with comprehensive documentation
+    
+    ## 🚀 Getting Started
+    
+    Most endpoints are **public** and require no authentication. Simply make HTTP requests 
+    to start accessing fog data:
+    
+    ```bash
+    curl https://api.karlcam.com/api/public/cameras
+    ```
+    
+    ## 📈 Data Freshness
+    
+    * **Fog Assessments**: Updated every ~10 minutes
+    * **Image Collection**: Continuous monitoring during daylight hours
+    * **Historical Data**: Available for up to 30 days
+    * **System Statistics**: Real-time aggregation
+    
+    ## 🔍 Fog Detection Levels
+    
+    Our AI system classifies fog into these categories:
+    * **Clear** (0-20) - No fog detected
+    * **Light Fog** (21-40) - Minimal visibility impact  
+    * **Moderate Fog** (41-60) - Noticeable fog presence
+    * **Heavy Fog** (61-80) - Significant visibility reduction
+    * **Very Heavy Fog** (81-100) - Dense fog conditions
+    
+    ## 💡 Use Cases
+    
+    * Weather monitoring applications
+    * Transportation planning systems
+    * Photography and tourism apps
+    * Academic research on fog patterns
+    * Maritime and aviation weather services
+    
+    ## 🆘 Support
+    
+    Need help? Check our documentation or reach out:
+    * 📧 Technical Support: Open an issue on GitHub
+    * 🌐 System Status: Monitor via `/health` endpoints
+    * 📖 API Updates: Follow our changelog
+    """,
     version=settings.VERSION,
+    openapi_tags=tags_metadata,
+    servers=[
+        {
+            "url": "https://api.karlcam.com",
+            "description": "Production server"
+        },
+        {
+            "url": "https://staging-api.karlcam.com", 
+            "description": "Staging server"
+        },
+        {
+            "url": "http://localhost:8002",
+            "description": "Local development server"
+        }
+    ],
+    contact={
+        "name": "KarlCam Development Team",
+        "url": "https://github.com/your-repo/karlcam",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    swagger_ui_parameters={
+        "docExpansion": "list",
+        "defaultModelsExpandDepth": 2, 
+        "defaultModelExpandDepth": 2,
+        "filter": True,
+        "showExtensions": True,
+        "showCommonExtensions": True,
+        "tryItOutEnabled": True,
+    },
     lifespan=lifespan
 )
 
@@ -116,6 +238,9 @@ async def general_exception_handler(request: Request, exc: Exception):
             "path": request.url.path
         }
     )
+
+# Setup custom OpenAPI schema
+setup_openapi(app)
 
 # Include routers
 app.include_router(health.router)
