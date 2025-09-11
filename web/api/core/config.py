@@ -28,6 +28,11 @@ class Settings:
     # CORS settings
     CORS_ORIGINS: list = ["*"]  # Configure for your domain
     
+    # Database Pool Settings
+    DB_POOL_MIN_CONN: int = int(os.getenv("DB_POOL_MIN_CONN", "2"))
+    DB_POOL_MAX_CONN: int = int(os.getenv("DB_POOL_MAX_CONN", "10"))
+    DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+    
     def __post_init__(self):
         """Validate required settings"""
         if not self.DATABASE_URL:

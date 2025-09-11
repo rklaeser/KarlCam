@@ -6,12 +6,14 @@ FastAPI server that reads historical camera data assessed by Gemini from Cloud S
 
 import logging
 from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from .core.config import settings
+from .core.dependencies import get_db_pool, cleanup_dependencies
 from .routers import health, cameras, images, system
 from .utils.exceptions import KarlCamException
 
@@ -19,8 +21,32 @@ from .utils.exceptions import KarlCamException
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle"""
+    # Startup
+    logger.info("Starting up KarlCam Fog API...")
+    
+    # Initialize database pool
+    db_pool = get_db_pool()
+    logger.info("Database pool initialized")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down KarlCam Fog API...")
+    
+    # Cleanup dependencies
+    cleanup_dependencies()
+
+
+# Create FastAPI app with lifecycle management
+app = FastAPI(
+    title=settings.APP_NAME, 
+    version=settings.VERSION,
+    lifespan=lifespan
+)
 
 # Configure CORS
 app.add_middleware(
