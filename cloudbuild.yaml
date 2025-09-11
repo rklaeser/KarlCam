@@ -243,7 +243,7 @@ steps:
         # Install dependencies
         apt-get update && apt-get install -y git curl
         cd web/api
-        pip install -r requirements.txt requirements-test.txt
+        pip install -r requirements.txt -r requirements-test.txt
         
         # Run full test suite
         echo "🏃 Running unit tests..."
@@ -332,7 +332,7 @@ steps:
         echo "✅ Smoke tests completed!"
     waitFor: ['terraform-deploy']  # Also runs after deployment
 
-# Save test results and coverage reports
+# Save test results and coverage reports (bucket will be created if it doesn't exist)
 artifacts:
   objects:
     location: 'gs://${_PROJECT_ID}-build-artifacts/${BUILD_ID}'
