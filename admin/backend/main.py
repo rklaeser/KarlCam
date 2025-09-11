@@ -3,7 +3,7 @@ FastAPI Review Backend for KarlCam
 Handles review workflow for Gemini-labeled images using Cloud Storage and SQL Database
 """
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
@@ -12,7 +12,6 @@ from datetime import datetime
 import logging
 import os
 import sys
-import io
 from pathlib import Path
 from google.cloud import storage
 from dotenv import load_dotenv
@@ -647,7 +646,7 @@ async def get_images_for_review(
 
 @app.get("/api/images/{filename}")
 async def serve_image(filename: str):
-    """Serve image from Cloud Storage"""
+    """Redirect to direct Cloud Storage image URL"""
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
         blob = bucket.blob(f"raw_images/{filename}")
@@ -655,22 +654,13 @@ async def serve_image(filename: str):
         if not blob.exists():
             raise HTTPException(status_code=404, detail="Image not found")
         
-        # Download the image data
-        image_data = blob.download_as_bytes()
+        # Return direct public GCS URL instead of proxying
+        direct_url = f"https://storage.googleapis.com/{BUCKET_NAME}/raw_images/{filename}"
         
-        # Determine content type based on file extension
-        content_type = "image/jpeg"  # Default
-        if filename.lower().endswith('.png'):
-            content_type = "image/png"
-        elif filename.lower().endswith('.gif'):
-            content_type = "image/gif"
-        elif filename.lower().endswith('.webp'):
-            content_type = "image/webp"
-        
-        # Return the image data as a streaming response
-        return StreamingResponse(
-            io.BytesIO(image_data),
-            media_type=content_type,
+        # Redirect to direct GCS URL to eliminate bandwidth doubling
+        return RedirectResponse(
+            url=direct_url,
+            status_code=302,
             headers={"Cache-Control": "public, max-age=3600"}  # Cache for 1 hour
         )
         
