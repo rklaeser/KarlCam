@@ -254,21 +254,17 @@ steps:
         
         # Install dependencies
         apt-get update && apt-get install -y git curl
-        cd web/api
-        pip install -r requirements.txt -r requirements-test.txt
+        pip install -r web/api/requirements.txt -r web/api/requirements-test.txt
         
-        # Run full test suite
+        # Set Python path for proper module imports
+        export PYTHONPATH=/workspace:$PYTHONPATH
+        
+        # Run full test suite from repo root
         echo "🏃 Running unit tests..."
-        python run_tests.py unit -v
+        python -m web.api.run_tests unit
         
         echo "🔗 Running integration tests..."  
-        python run_tests.py integration -v
-        
-        echo "📊 Generating coverage report..."
-        python run_tests.py coverage --html
-        
-        # Generate XML coverage for artifacts
-        python -m coverage xml -o coverage.xml
+        python -m web.api.run_tests integration
         
         echo "✅ All async API tests completed!"
         
