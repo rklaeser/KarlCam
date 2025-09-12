@@ -254,15 +254,19 @@ steps:
         
         # Install dependencies
         apt-get update && apt-get install -y git curl
+        
+        # Install dependencies from workspace root
+        pip install -r web/api/requirements.txt -r web/api/requirements-test.txt
+        
+        # Run tests from the web/api directory with proper PYTHONPATH
         cd web/api
-        pip install -r requirements.txt -r requirements-test.txt
+        export PYTHONPATH=/workspace/web/api:$$PYTHONPATH
         
-        # Run full test suite (without -v flags that aren't supported)
         echo "🏃 Running unit tests..."
-        python run_tests.py unit
+        python -m pytest tests/ -m unit -v --tb=short
         
-        echo "🔗 Running integration tests..."  
-        python run_tests.py integration
+        echo "🔗 Running integration tests..."
+        python -m pytest tests/ -m integration -v --tb=short
         
         echo "✅ All async API tests completed!"
         

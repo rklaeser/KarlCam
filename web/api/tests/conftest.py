@@ -9,6 +9,12 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
 # Import the main app and dependencies
+import sys
+from pathlib import Path
+
+# Add the parent directory to Python path to enable imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from main import app
 from core.dependencies import get_db_manager
 from core.config import settings
