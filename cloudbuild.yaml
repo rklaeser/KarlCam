@@ -188,8 +188,6 @@ steps:
       - 'TF_VAR_gemini_api_key=${_GEMINI_API_KEY}'
     secretEnv: ['DATABASE_PASSWORD', 'GEMINI_API_KEY']
     waitFor: 
-      - 'push-collector'
-      - 'push-labeler'
       - 'push-pipeline'
       - 'push-api'
       - 'push-frontend'
