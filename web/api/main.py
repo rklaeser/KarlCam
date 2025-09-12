@@ -13,11 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-from core.config import settings
-from core.dependencies import get_db_pool, cleanup_dependencies
-from core.openapi import setup_openapi
-from routers import health, cameras, images, system, config
-from utils.exceptions import KarlCamException
+from web.api.core.config import settings
+from web.api.core.dependencies import get_db_pool, cleanup_dependencies
+from web.api.core.openapi import setup_openapi
+from web.api.routers import health, cameras, images, system, config
+from web.api.utils.exceptions import KarlCamException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
