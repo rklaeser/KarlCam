@@ -6,8 +6,7 @@ A serverless webcam monitoring and fog detection system built on Google Cloud Pl
 
 KarlCam uses a modern serverless architecture on Google Cloud:
 
-- **Data Collection**: Cloud Run Job that periodically fetches webcam images
-- **Fog Labeling**: AI service using Gemini to analyze images for fog conditions
+- **Unified Pipeline**: Single Cloud Run Job that collects images and analyzes them for fog conditions
 - **API Backend**: FastAPI service providing REST endpoints for public data access
 - **Public Frontend**: React application for viewing webcam data and fog conditions
 - **Admin System**: Management interface for system administration
@@ -67,7 +66,7 @@ KarlCam uses Cloud Build for automated deployments. Push to the `main` branch tr
    make start-frontend       # Frontend on http://localhost:3000
    make start-admin-backend  # Admin API on http://localhost:8001
    make start-admin-frontend # Admin UI on http://localhost:3001
-   make start-collect        # Run collector locally
+   make start-pipeline       # Run unified pipeline locally
    ```
 
 ### Python Development
@@ -81,8 +80,7 @@ KarlCam uses Cloud Build for automated deployments. Push to the `main` branch tr
 2. **Install dependencies for specific service:**
    ```bash
    pip install -r web/api/requirements.txt
-   pip install -r collect/requirements.txt
-   pip install -r label/requirements.txt
+   pip install -r pipeline/requirements.txt
    ```
 
 3. **Initialize database:**
@@ -137,11 +135,11 @@ KarlCam uses Cloud Build for automated deployments. Push to the `main` branch tr
 
 ```
 KarlCam/
-├── collect/           # Data collection service (Cloud Run Job)
-│   └── infra/        # Collector Dockerfile and configs
-├── label/            # Fog labeling service (Cloud Run Job)
-│   ├── labelers/     # Different labeler implementations
-│   └── infra/        # Labeler Dockerfile and configs
+├── pipeline/         # Unified data collection and labeling service (Cloud Run Job)
+│   ├── labelers/     # Different labeler implementations (Gemini, Gemini Masked)
+│   ├── collect_and_label.py # Main pipeline script
+│   ├── requirements.txt
+│   └── Dockerfile.prod
 ├── web/
 │   ├── api/          # FastAPI backend service
 │   │   └── infra/    # API Dockerfile and configs

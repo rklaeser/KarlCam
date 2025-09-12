@@ -12,12 +12,13 @@ from httpx import AsyncClient
 import sys
 from pathlib import Path
 
-# Add the parent directory to Python path to enable imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add the project root directory to Python path to enable imports  
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-from main import app
-from core.dependencies import get_db_manager
-from core.config import settings
+from web.api.main import app
+from web.api.core.dependencies import get_db_manager
+from web.api.core.config import settings
 
 # Test settings override
 class TestSettings:
