@@ -67,9 +67,9 @@ class CameraService:
                         "description": webcam.description or "",
                         "fog_score": fog_score,
                         "fog_level": label.get('fog_level', 'Unknown'),
-                        "confidence": confidence * 100,  # Convert 0-1 to 0-100
+                        "confidence": confidence,  # Keep as 0-1 range
                         "weather_detected": fog_detected,
-                        "weather_confidence": confidence * 100,
+                        "weather_confidence": confidence,  # Keep as 0-1 range
                         "timestamp": latest_img['timestamp'].isoformat() if latest_img['timestamp'] else None,
                         "active": webcam.active
                     })
