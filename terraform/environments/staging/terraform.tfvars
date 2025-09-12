@@ -19,9 +19,8 @@ max_api_instances      = 3
 max_frontend_instances = 2
 max_admin_instances    = 2
 
-# More frequent collection for testing
-collector_schedule = "0 */2 * * *"  # Every 2 hours
-labeler_schedule   = "15 1 * * *"   # Daily at 1:15 AM
+# Pipeline schedule for testing
+pipeline_schedule = "*/30 * * * *"  # Every 30 minutes for staging
 
 
 # Staging-specific settings

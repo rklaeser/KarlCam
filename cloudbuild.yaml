@@ -13,34 +13,7 @@ options:
   machineType: 'E2_HIGHCPU_8'
 
 steps:
-  # Build all Docker images in parallel
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-collector'
-    args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${BRANCH_NAME}'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-collector:latest'
-      - '-f'
-      - 'collect/infra/Dockerfile.prod'
-      - '.'
-
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-labeler'
-    args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${BRANCH_NAME}'
-      - '-t'
-      - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:latest'
-      - '-f'
-      - 'label/infra/Dockerfile.prod'
-      - '.'
+  # Build Docker images
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-pipeline'
@@ -117,15 +90,6 @@ steps:
       - '.'
 
   # Push all images
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'push-collector'
-    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-collector']
-    waitFor: ['build-collector']
-
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'push-labeler'
-    args: ['push', '--all-tags', 'gcr.io/${_PROJECT_ID}/karlcam-labeler']
-    waitFor: ['build-labeler']
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-pipeline'
@@ -351,10 +315,6 @@ availableSecrets:
       env: 'GEMINI_API_KEY'
 
 images:
-  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-collector:${BRANCH_NAME}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${SHORT_SHA}'
-  - 'gcr.io/${_PROJECT_ID}/karlcam-labeler:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${SHORT_SHA}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-pipeline:${BRANCH_NAME}'
   - 'gcr.io/${_PROJECT_ID}/karlcam-api:${SHORT_SHA}'

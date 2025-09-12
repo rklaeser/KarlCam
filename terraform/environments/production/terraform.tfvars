@@ -19,9 +19,8 @@ max_api_instances      = 10
 max_frontend_instances = 5
 max_admin_instances    = 3
 
-# Production collection schedule
-collector_schedule = "*/15 7-18 * * *"  # Every 15 minutes, 7am-6:45pm
-labeler_schedule   = "7,22,37,52 7-18 * * *"  # Every 15 minutes offset by 7 min, 7:07am-6:52pm
+# Production pipeline schedule  
+pipeline_schedule = "*/10 * * * *"  # Every 10 minutes - unified pipeline
 
 
 # Production-specific settings

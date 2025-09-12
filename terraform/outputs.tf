@@ -49,27 +49,6 @@ output "admin_frontend_service_url" {
   value       = google_cloud_run_v2_service.karlcam_admin_frontend.uri
 }
 
-# Cloud Run Jobs
-output "collector_job_name" {
-  description = "Name of the collector Cloud Run job"
-  value       = google_cloud_run_v2_job.karlcam_collector.name
-}
-
-output "labeler_job_name" {
-  description = "Name of the labeler Cloud Run job"
-  value       = google_cloud_run_v2_job.karlcam_labeler.name
-}
-
-# Scheduler outputs (production only)
-output "collector_schedule_name" {
-  description = "Name of the collector scheduler job (production only)"
-  value       = var.environment == "production" ? module.scheduler[0].collector_job_schedule_name : "No scheduler in staging"
-}
-
-output "labeler_schedule_name" {
-  description = "Name of the labeler scheduler job (production only)"
-  value       = var.environment == "production" ? module.scheduler[0].labeler_job_schedule_name : "No scheduler in staging"
-}
 
 # Domain Mappings (when configured)
 output "api_domain" {
@@ -115,15 +94,6 @@ output "region" {
 }
 
 # Quick Commands for Manual Operations
-output "collector_run_command" {
-  description = "Command to manually run the collector job"
-  value       = "gcloud run jobs execute ${google_cloud_run_v2_job.karlcam_collector.name} --region=${var.region} --project=${var.project_id}"
-}
-
-output "labeler_run_command" {
-  description = "Command to manually run the labeler job"
-  value       = "gcloud run jobs execute ${google_cloud_run_v2_job.karlcam_labeler.name} --region=${var.region} --project=${var.project_id}"
-}
 
 output "api_logs_command" {
   description = "Command to view API service logs"

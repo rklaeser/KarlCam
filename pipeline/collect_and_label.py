@@ -36,7 +36,7 @@ class KarlCamPipeline:
         
         # Import labelers dynamically
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "label"))
+            sys.path.insert(0, str(Path(__file__).parent))
             from labelers import create_labeler
             self.create_labeler = create_labeler
         except ImportError as e:
