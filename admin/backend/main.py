@@ -749,6 +749,531 @@ async def export_training_data():
     # This could trigger a training pipeline or export process
     return {"message": "Training data export triggered"}
 
+
+# ============= LABELER MANAGEMENT ENDPOINTS =============
+
+class LabelerConfig(BaseModel):
+    """Labeler configuration model"""
+    name: str
+    mode: str = Field(..., regex="^(production|shadow|experimental|deprecated)$")
+    enabled: bool = True
+    version: str = "1.0"
+    config: Dict = {}
+
+class LabelerUpdate(BaseModel):
+    """Model for updating labeler configuration"""
+    mode: Optional[str] = Field(None, regex="^(production|shadow|experimental|deprecated)$")
+    enabled: Optional[bool] = None
+    version: Optional[str] = None
+    config: Optional[Dict] = None
+
+class LabelerPerformance(BaseModel):
+    """Labeler performance metrics model"""
+    labeler_name: str
+    labeler_mode: str
+    total_executions: int
+    avg_execution_time_ms: Optional[float]
+    avg_confidence: Optional[float]
+    avg_fog_score: Optional[float]
+    total_cost_cents: Optional[float]
+    executions_last_24h: int
+
+class LabelerComparison(BaseModel):
+    """Model for labeler comparison data"""
+    image_id: int
+    webcam_id: str
+    image_timestamp: datetime
+    primary_labeler: Optional[str]
+    primary_fog_score: Optional[float]
+    primary_fog_level: Optional[str]
+    fog_score_disagreement: Optional[float]
+    total_labelers_run: int
+
+@app.get("/api/labelers", response_model=List[LabelerConfig])
+async def get_all_labelers():
+    """Get all labeler configurations"""
+    try:
+        query = """
+            SELECT name, mode, enabled, version, config
+            FROM labeler_config
+            ORDER BY name
+        """
+        rows = execute_query(query)
+        
+        labelers = []
+        for row in rows:
+            labelers.append(LabelerConfig(
+                name=row[0],
+                mode=row[1],
+                enabled=row[2],
+                version=row[3] or "1.0",
+                config=row[4] or {}
+            ))
+        
+        return labelers
+        
+    except Exception as e:
+        logger.error(f"Failed to get labelers: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve labelers")
+
+@app.get("/api/labelers/{labeler_name}", response_model=LabelerConfig)
+async def get_labeler(labeler_name: str):
+    """Get specific labeler configuration"""
+    try:
+        query = """
+            SELECT name, mode, enabled, version, config
+            FROM labeler_config
+            WHERE name = %s
+        """
+        rows = execute_query(query, (labeler_name,))
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        row = rows[0]
+        return LabelerConfig(
+            name=row[0],
+            mode=row[1],
+            enabled=row[2],
+            version=row[3] or "1.0",
+            config=row[4] or {}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve labeler")
+
+@app.get("/api/labelers/by-mode/{mode}")
+async def get_labelers_by_mode(mode: str):
+    """Get labelers filtered by mode"""
+    if mode not in ["production", "shadow", "experimental", "deprecated"]:
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    
+    try:
+        query = """
+            SELECT name, mode, enabled, version, config
+            FROM labeler_config
+            WHERE mode = %s AND enabled = true
+            ORDER BY name
+        """
+        rows = execute_query(query, (mode,))
+        
+        labelers = []
+        for row in rows:
+            labelers.append(LabelerConfig(
+                name=row[0],
+                mode=row[1],
+                enabled=row[2],
+                version=row[3] or "1.0",
+                config=row[4] or {}
+            ))
+        
+        return labelers
+        
+    except Exception as e:
+        logger.error(f"Failed to get labelers by mode {mode}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve labelers")
+
+@app.put("/api/labelers/{labeler_name}")
+async def update_labeler(labeler_name: str, update: LabelerUpdate):
+    """Update labeler configuration"""
+    try:
+        # Check if labeler exists
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler_name,))
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        # Build update query dynamically
+        update_fields = []
+        update_values = []
+        
+        if update.mode is not None:
+            update_fields.append("mode = %s")
+            update_values.append(update.mode)
+        
+        if update.enabled is not None:
+            update_fields.append("enabled = %s")
+            update_values.append(update.enabled)
+        
+        if update.version is not None:
+            update_fields.append("version = %s")
+            update_values.append(update.version)
+        
+        if update.config is not None:
+            update_fields.append("config = %s")
+            update_values.append(update.config)
+        
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        update_fields.append("updated_at = NOW()")
+        update_values.append(labeler_name)
+        
+        query = f"""
+            UPDATE labeler_config 
+            SET {', '.join(update_fields)}
+            WHERE name = %s
+        """
+        
+        execute_query(query, update_values)
+        
+        logger.info(f"Updated labeler {labeler_name}: {update.dict(exclude_none=True)}")
+        return {"message": f"Labeler {labeler_name} updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update labeler")
+
+@app.post("/api/labelers")
+async def create_labeler(labeler: LabelerConfig):
+    """Create new labeler configuration"""
+    try:
+        # Check if labeler already exists
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler.name,))
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="Labeler already exists")
+        
+        query = """
+            INSERT INTO labeler_config (name, mode, enabled, version, config)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        
+        execute_query(query, (
+            labeler.name,
+            labeler.mode,
+            labeler.enabled,
+            labeler.version,
+            labeler.config
+        ))
+        
+        logger.info(f"Created new labeler: {labeler.name}")
+        return {"message": f"Labeler {labeler.name} created successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create labeler {labeler.name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create labeler")
+
+@app.delete("/api/labelers/{labeler_name}")
+async def delete_labeler(labeler_name: str):
+    """Delete labeler configuration"""
+    try:
+        # Check if labeler exists
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler_name,))
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        query = "DELETE FROM labeler_config WHERE name = %s"
+        execute_query(query, (labeler_name,))
+        
+        logger.info(f"Deleted labeler: {labeler_name}")
+        return {"message": f"Labeler {labeler_name} deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete labeler")
+
+@app.post("/api/labelers/{labeler_name}/enable")
+async def enable_labeler(labeler_name: str):
+    """Enable a labeler"""
+    try:
+        query = "UPDATE labeler_config SET enabled = true, updated_at = NOW() WHERE name = %s"
+        result = execute_query(query, (labeler_name,))
+        
+        # Check if any rows were affected
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler_name,))
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        logger.info(f"Enabled labeler: {labeler_name}")
+        return {"message": f"Labeler {labeler_name} enabled"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to enable labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to enable labeler")
+
+@app.post("/api/labelers/{labeler_name}/disable")
+async def disable_labeler(labeler_name: str):
+    """Disable a labeler"""
+    try:
+        query = "UPDATE labeler_config SET enabled = false, updated_at = NOW() WHERE name = %s"
+        execute_query(query, (labeler_name,))
+        
+        # Check if any rows were affected
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler_name,))
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        logger.info(f"Disabled labeler: {labeler_name}")
+        return {"message": f"Labeler {labeler_name} disabled"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to disable labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to disable labeler")
+
+@app.post("/api/labelers/{labeler_name}/set-mode")
+async def set_labeler_mode(labeler_name: str, mode_data: Dict[str, str]):
+    """Change labeler mode"""
+    mode = mode_data.get("mode")
+    if not mode or mode not in ["production", "shadow", "experimental", "deprecated"]:
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    
+    try:
+        query = "UPDATE labeler_config SET mode = %s, updated_at = NOW() WHERE name = %s"
+        execute_query(query, (mode, labeler_name))
+        
+        # Check if any rows were affected
+        check_query = "SELECT name FROM labeler_config WHERE name = %s"
+        existing = execute_query(check_query, (labeler_name,))
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="Labeler not found")
+        
+        logger.info(f"Set labeler {labeler_name} mode to {mode}")
+        return {"message": f"Labeler {labeler_name} mode set to {mode}"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to set mode for labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to set labeler mode")
+
+# ============= PERFORMANCE MONITORING ENDPOINTS =============
+
+@app.get("/api/labelers/performance/summary", response_model=List[LabelerPerformance])
+async def get_labeler_performance():
+    """Get performance metrics for all labelers"""
+    try:
+        query = """
+            SELECT 
+                labeler_name,
+                labeler_mode,
+                total_executions,
+                avg_execution_time_ms,
+                avg_confidence,
+                avg_fog_score,
+                total_cost_cents,
+                executions_last_24h
+            FROM labeler_performance_summary
+            ORDER BY labeler_name
+        """
+        rows = execute_query(query)
+        
+        performance_data = []
+        for row in rows:
+            performance_data.append(LabelerPerformance(
+                labeler_name=row[0],
+                labeler_mode=row[1],
+                total_executions=row[2] or 0,
+                avg_execution_time_ms=row[3],
+                avg_confidence=row[4],
+                avg_fog_score=row[5],
+                total_cost_cents=row[6],
+                executions_last_24h=row[7] or 0
+            ))
+        
+        return performance_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get labeler performance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve performance data")
+
+@app.get("/api/labelers/{labeler_name}/performance")
+async def get_labeler_specific_performance(labeler_name: str):
+    """Get performance metrics for specific labeler"""
+    try:
+        query = """
+            SELECT 
+                labeler_name,
+                labeler_mode,
+                total_executions,
+                avg_execution_time_ms,
+                median_execution_time_ms,
+                min_execution_time_ms,
+                max_execution_time_ms,
+                avg_confidence,
+                avg_fog_score,
+                total_cost_cents,
+                avg_cost_cents,
+                clear_count,
+                light_fog_count,
+                moderate_fog_count,
+                heavy_fog_count,
+                very_heavy_fog_count,
+                first_execution,
+                last_execution,
+                executions_last_24h
+            FROM labeler_performance_summary
+            WHERE labeler_name = %s
+        """
+        rows = execute_query(query, (labeler_name,))
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail="Labeler performance data not found")
+        
+        row = rows[0]
+        return {
+            "labeler_name": row[0],
+            "labeler_mode": row[1],
+            "execution_metrics": {
+                "total_executions": row[2] or 0,
+                "avg_execution_time_ms": row[3],
+                "median_execution_time_ms": row[4],
+                "min_execution_time_ms": row[5],
+                "max_execution_time_ms": row[6],
+                "executions_last_24h": row[18] or 0
+            },
+            "quality_metrics": {
+                "avg_confidence": row[7],
+                "avg_fog_score": row[8]
+            },
+            "cost_metrics": {
+                "total_cost_cents": row[9],
+                "avg_cost_cents": row[10]
+            },
+            "fog_distribution": {
+                "clear": row[11] or 0,
+                "light_fog": row[12] or 0,
+                "moderate_fog": row[13] or 0,
+                "heavy_fog": row[14] or 0,
+                "very_heavy_fog": row[15] or 0
+            },
+            "time_range": {
+                "first_execution": row[16],
+                "last_execution": row[17]
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get performance for labeler {labeler_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve labeler performance")
+
+@app.get("/api/labelers/performance/comparison", response_model=List[LabelerComparison])
+async def get_labeler_comparison(
+    days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of results")
+):
+    """Get labeler comparison data for agreement analysis"""
+    try:
+        query = """
+            SELECT 
+                image_id,
+                webcam_id,
+                image_timestamp,
+                primary_labeler,
+                primary_fog_score,
+                primary_fog_level,
+                fog_score_disagreement,
+                total_labelers_run
+            FROM labeler_agreement_analysis
+            WHERE image_timestamp >= CURRENT_DATE - INTERVAL '%s days'
+            ORDER BY fog_score_disagreement DESC NULLS LAST
+            LIMIT %s
+        """
+        rows = execute_query(query, (days, limit))
+        
+        comparison_data = []
+        for row in rows:
+            comparison_data.append(LabelerComparison(
+                image_id=row[0],
+                webcam_id=row[1],
+                image_timestamp=row[2],
+                primary_labeler=row[3],
+                primary_fog_score=row[4],
+                primary_fog_level=row[5],
+                fog_score_disagreement=row[6],
+                total_labelers_run=row[7] or 0
+            ))
+        
+        return comparison_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get labeler comparison: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve comparison data")
+
+@app.get("/api/labelers/performance/daily")
+async def get_daily_performance(
+    days: int = Query(30, ge=1, le=90, description="Number of days to retrieve"),
+    labeler_name: Optional[str] = Query(None, description="Filter by specific labeler")
+):
+    """Get daily performance trends"""
+    try:
+        if labeler_name:
+            query = """
+                SELECT 
+                    execution_date,
+                    labeler_name,
+                    labeler_mode,
+                    daily_executions,
+                    avg_execution_time_ms,
+                    avg_cost_cents,
+                    avg_confidence,
+                    total_daily_cost_cents
+                FROM labeler_daily_performance
+                WHERE labeler_name = %s
+                AND execution_date >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY execution_date DESC
+            """
+            rows = execute_query(query, (labeler_name, days))
+        else:
+            query = """
+                SELECT 
+                    execution_date,
+                    labeler_name,
+                    labeler_mode,
+                    daily_executions,
+                    avg_execution_time_ms,
+                    avg_cost_cents,
+                    avg_confidence,
+                    total_daily_cost_cents
+                FROM labeler_daily_performance
+                WHERE execution_date >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY execution_date DESC, labeler_name
+            """
+            rows = execute_query(query, (days,))
+        
+        daily_data = []
+        for row in rows:
+            daily_data.append({
+                "date": row[0],
+                "labeler_name": row[1],
+                "labeler_mode": row[2],
+                "daily_executions": row[3] or 0,
+                "avg_execution_time_ms": row[4],
+                "avg_cost_cents": row[5],
+                "avg_confidence": row[6],
+                "total_daily_cost_cents": row[7]
+            })
+        
+        return daily_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get daily performance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve daily performance")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

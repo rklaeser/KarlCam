@@ -38,10 +38,17 @@ class KarlCamPipeline:
         try:
             sys.path.insert(0, str(Path(__file__).parent))
             from labelers import create_labeler
+            from labelers.registry import get_registry
             self.create_labeler = create_labeler
+            self.registry = get_registry()
+            if self.registry:
+                logger.info(f"✅ Labeler registry initialized with {len(self.registry.configs)} configurations")
+            else:
+                logger.warning("⚠️ Labeler registry not available, falling back to direct labeler creation")
         except ImportError as e:
             logger.error(f"Failed to import labelers: {e}")
             self.create_labeler = None
+            self.registry = None
         
     async def run(self):
         """Main pipeline execution"""
@@ -122,7 +129,7 @@ class KarlCamPipeline:
                 )
                 
                 label_task = asyncio.create_task(
-                    self.label_image_async(image, webcam)
+                    self.label_image_multi_async(image, webcam)
                 )
                 
                 # 3. Save image collection to database first
@@ -149,32 +156,13 @@ class KarlCamPipeline:
                 else:
                     logger.info(f"☁️ Storage complete for {webcam_name}")
                 
-                # 5. Save label to database
-                if not isinstance(label_result, Exception) and label_result.get("status") == "success":
-                    if image_id and not self.local_testing:
-                        label = ImageLabel(
-                            image_id=image_id,
-                            labeler_name="gemini",
-                            labeler_version="1.0",
-                            fog_score=label_result.get('fog_score'),
-                            fog_level=label_result.get('fog_level'),
-                            confidence=label_result.get('confidence'),
-                            reasoning=label_result.get('reasoning'),
-                            visibility_estimate=label_result.get('visibility_estimate'),
-                            weather_conditions=label_result.get('weather_conditions', []),
-                            label_data=label_result
-                        )
-                        self.db.save_image_label(label)
-                        logger.info(f"🏷️ Saved label for {webcam_name}")
-                    
-                    logger.info(f"✅ {webcam_name}: Fog {label_result.get('fog_level', 'Unknown')} "
-                               f"(score: {label_result.get('fog_score', 'N/A')}, "
-                               f"confidence: {label_result.get('confidence', 'N/A')})")
+                # 5. Save labels to database
+                if not isinstance(label_result, Exception) and image_id and not self.local_testing:
+                    self.save_labels_to_db(image_id, label_result, webcam_name)
+                elif isinstance(label_result, Exception):
+                    logger.error(f"❌ Labeling failed for {webcam_name}: {label_result}")
                 else:
-                    if isinstance(label_result, Exception):
-                        logger.error(f"❌ Labeling failed for {webcam_name}: {label_result}")
-                    else:
-                        logger.error(f"❌ Labeling failed for {webcam_name}: {label_result.get('error', 'Unknown error')}")
+                    logger.error(f"❌ Labeling failed for {webcam_name}: {label_result.get('error', 'Unknown error')}")
                 
                 return True
                 
@@ -398,6 +386,175 @@ class KarlCamPipeline:
         # This avoids blocking the pipeline with discovery operations
         logger.info(f"🔄 Using fallback URL for {webcam['id']}: {webcam['url']}")
         return webcam['url']
+    
+    async def label_image_multi_async(self, image: Image, webcam: Dict):
+        """Asynchronously label image using registry (with fallback to single labeler)"""
+        # Try registry-based multi-labeling first
+        if self.registry:
+            try:
+                return await self._run_registry_labelers(image, webcam)
+            except Exception as e:
+                logger.warning(f"Registry labeling failed, falling back to single labeler: {e}")
+        
+        # Fallback to original single labeler approach
+        return await self.label_image_async(image, webcam)
+    
+    async def _run_registry_labelers(self, image: Image, webcam: Dict):
+        """Run labelers from registry based on their modes"""
+        # Get production and shadow labelers
+        production_labelers = self.registry.get_ready_labelers(['production'])
+        shadow_labelers = self.registry.get_ready_labelers(['shadow'])
+        
+        if not production_labelers:
+            logger.warning("No production labelers available in registry")
+            return {"status": "error", "error": "No production labelers available"}
+        
+        # Prepare metadata
+        metadata = {
+            "webcam": webcam,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Run all labelers (production + shadow)
+        all_labelers = production_labelers + shadow_labelers
+        labeling_tasks = []
+        
+        for labeler, config in all_labelers:
+            task = asyncio.create_task(
+                self._run_single_labeler_with_metrics(labeler, config, image, metadata)
+            )
+            labeling_tasks.append(task)
+        
+        # Wait for all labeling tasks to complete
+        results = await asyncio.gather(*labeling_tasks, return_exceptions=True)
+        
+        # Process results
+        successful_results = []
+        for i, result in enumerate(results):
+            labeler, config = all_labelers[i]
+            if isinstance(result, Exception):
+                logger.error(f"❌ {config['name']} labeler failed: {result}")
+            elif result.get('status') == 'success':
+                successful_results.append(result)
+                logger.info(f"✅ {config['name']} ({config['mode']}): "
+                           f"Fog {result.get('fog_level', 'Unknown')} "
+                           f"(score: {result.get('fog_score', 'N/A')}, "
+                           f"confidence: {result.get('confidence', 'N/A')})")
+            else:
+                logger.error(f"❌ {config['name']} labeler returned error: {result.get('error', 'Unknown')}")
+        
+        if not successful_results:
+            return {"status": "error", "error": "All labelers failed"}
+        
+        # Return all successful results
+        return {
+            "status": "success",
+            "results": successful_results,
+            "primary_result": successful_results[0]  # First successful result as primary
+        }
+    
+    async def _run_single_labeler_with_metrics(self, labeler, config: Dict, image: Image, metadata: Dict):
+        """Run a single labeler and collect metrics"""
+        loop = asyncio.get_event_loop()
+        
+        # Run labeling in executor (CPU-bound operation)
+        result = await loop.run_in_executor(
+            None,
+            labeler.label_image,
+            image,
+            metadata
+        )
+        
+        # Add labeler metadata to result
+        if isinstance(result, dict) and result.get('status') == 'success':
+            # The metrics wrapper already added performance data
+            result['labeler_name'] = config['name']
+            result['labeler_version'] = config['version'] 
+            result['labeler_mode'] = config['mode']
+        
+        return result
+    
+    def save_labels_to_db(self, image_id: int, label_results: Dict, webcam_name: str):
+        """Save label results to database (handles both single and multi-labeler results)"""
+        try:
+            # Handle both old single result format and new multi-result format
+            if label_results.get('results'):
+                # Multi-labeler results
+                results_to_save = label_results['results']
+            elif label_results.get('status') == 'success':
+                # Single labeler result (backward compatibility)
+                results_to_save = [label_results]
+            else:
+                logger.error(f"Invalid label results format for {webcam_name}")
+                return
+            
+            # Save each successful result
+            for result in results_to_save:
+                if result.get('status') != 'success':
+                    continue
+                
+                # Extract performance metrics if available
+                performance = result.get('_performance', {})
+                execution_time_ms = performance.get('execution_time_ms')
+                labeler_mode = performance.get('labeler_mode', 'production')
+                
+                # Create ImageLabel with performance metrics
+                label = ImageLabel(
+                    image_id=image_id,
+                    labeler_name=result.get('labeler_name', 'gemini'),
+                    labeler_version=result.get('labeler_version', '1.0'),
+                    fog_score=result.get('fog_score'),
+                    fog_level=result.get('fog_level'),
+                    confidence=result.get('confidence'),
+                    reasoning=result.get('reasoning'),
+                    visibility_estimate=result.get('visibility_estimate'),
+                    weather_conditions=result.get('weather_conditions', []),
+                    label_data=result
+                )
+                
+                # Add new performance fields - need to modify the to_dict method or save directly
+                label_dict = label.to_dict()
+                label_dict['labeler_mode'] = labeler_mode
+                label_dict['execution_time_ms'] = execution_time_ms
+                label_dict['api_cost_cents'] = performance.get('api_cost_cents')
+                
+                # Save using raw dict to include new fields
+                self._save_label_with_metrics(label_dict)
+                
+                logger.info(f"🏷️ Saved {result.get('labeler_name')} label for {webcam_name} "
+                           f"({labeler_mode}, {execution_time_ms}ms)")
+                
+        except Exception as e:
+            logger.error(f"Failed to save labels for {webcam_name}: {e}")
+    
+    def _save_label_with_metrics(self, label_dict: Dict):
+        """Save label with performance metrics using raw SQL"""
+        try:
+            from db.connection import execute_insert
+            
+            # Use raw SQL to insert with new columns
+            query = """
+                INSERT INTO image_labels (
+                    image_id, labeler_name, labeler_version, fog_score, fog_level,
+                    confidence, reasoning, visibility_estimate, weather_conditions,
+                    label_data, labeler_mode, execution_time_ms, api_cost_cents
+                ) VALUES (
+                    %(image_id)s, %(labeler_name)s, %(labeler_version)s, %(fog_score)s, %(fog_level)s,
+                    %(confidence)s, %(reasoning)s, %(visibility_estimate)s, %(weather_conditions)s,
+                    %(label_data)s, %(labeler_mode)s, %(execution_time_ms)s, %(api_cost_cents)s
+                )
+            """
+            
+            execute_insert(query, label_dict)
+            
+        except Exception as e:
+            logger.error(f"Failed to save label with metrics: {e}")
+            # Fallback to standard save without metrics
+            label = ImageLabel(**{k: v for k, v in label_dict.items() 
+                                if k in ['image_id', 'labeler_name', 'labeler_version',
+                                        'fog_score', 'fog_level', 'confidence', 'reasoning',
+                                        'visibility_estimate', 'weather_conditions', 'label_data']})
+            self.db.save_image_label(label)
 
 async def main():
     """Main entry point"""
