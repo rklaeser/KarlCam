@@ -755,14 +755,14 @@ async def export_training_data():
 class LabelerConfig(BaseModel):
     """Labeler configuration model"""
     name: str
-    mode: str = Field(..., regex="^(production|shadow|experimental|deprecated)$")
+    mode: str = Field(..., pattern="^(production|shadow|experimental|deprecated)$")
     enabled: bool = True
     version: str = "1.0"
     config: Dict = {}
 
 class LabelerUpdate(BaseModel):
     """Model for updating labeler configuration"""
-    mode: Optional[str] = Field(None, regex="^(production|shadow|experimental|deprecated)$")
+    mode: Optional[str] = Field(None, pattern="^(production|shadow|experimental|deprecated)$")
     enabled: Optional[bool] = None
     version: Optional[str] = None
     config: Optional[Dict] = None
