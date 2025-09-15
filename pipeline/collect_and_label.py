@@ -530,7 +530,12 @@ class KarlCamPipeline:
     def _save_label_with_metrics(self, label_dict: Dict):
         """Save label with performance metrics using raw SQL"""
         try:
-            from db.connection import execute_insert
+            import json
+            from db.connection import execute_query
+            
+            # Serialize JSON fields properly
+            weather_conditions_json = json.dumps(label_dict.get('weather_conditions', []))
+            label_data_json = json.dumps(label_dict.get('label_data', {}))
             
             # Use raw SQL to insert with new columns
             query = """
@@ -539,22 +544,53 @@ class KarlCamPipeline:
                     confidence, reasoning, visibility_estimate, weather_conditions,
                     label_data, labeler_mode, execution_time_ms, api_cost_cents
                 ) VALUES (
-                    %(image_id)s, %(labeler_name)s, %(labeler_version)s, %(fog_score)s, %(fog_level)s,
-                    %(confidence)s, %(reasoning)s, %(visibility_estimate)s, %(weather_conditions)s,
-                    %(label_data)s, %(labeler_mode)s, %(execution_time_ms)s, %(api_cost_cents)s
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s
                 )
             """
             
-            execute_insert(query, label_dict)
+            params = (
+                label_dict.get('image_id'),
+                label_dict.get('labeler_name'),
+                label_dict.get('labeler_version'),
+                label_dict.get('fog_score'),
+                label_dict.get('fog_level'),
+                label_dict.get('confidence'),
+                label_dict.get('reasoning'),
+                label_dict.get('visibility_estimate'),
+                weather_conditions_json,
+                label_data_json,
+                label_dict.get('labeler_mode'),
+                label_dict.get('execution_time_ms'),
+                label_dict.get('api_cost_cents')
+            )
+            
+            execute_query(query, params)
             
         except Exception as e:
             logger.error(f"Failed to save label with metrics: {e}")
             # Fallback to standard save without metrics
-            label = ImageLabel(**{k: v for k, v in label_dict.items() 
-                                if k in ['image_id', 'labeler_name', 'labeler_version',
-                                        'fog_score', 'fog_level', 'confidence', 'reasoning',
-                                        'visibility_estimate', 'weather_conditions', 'label_data']})
-            self.db.save_image_label(label)
+            try:
+                from db.models import ImageLabel
+                from db.manager import save_image_label
+                
+                label = ImageLabel(
+                    image_id=label_dict.get('image_id'),
+                    labeler_name=label_dict.get('labeler_name'),
+                    labeler_version=label_dict.get('labeler_version'),
+                    fog_score=label_dict.get('fog_score'),
+                    fog_level=label_dict.get('fog_level'),
+                    confidence=label_dict.get('confidence'),
+                    reasoning=label_dict.get('reasoning'),
+                    visibility_estimate=label_dict.get('visibility_estimate'),
+                    weather_conditions=label_dict.get('weather_conditions', []),
+                    label_data=label_dict.get('label_data', {})
+                )
+                save_image_label(label)
+                logger.info("✅ Saved label using fallback method (without metrics)")
+            except Exception as fallback_error:
+                logger.error(f"Fallback save also failed: {fallback_error}")
 
 async def main():
     """Main entry point"""
