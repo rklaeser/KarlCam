@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import CameraManager from './CameraManager';
+import LabelerManager from './LabelerManager';
+import PerformanceMonitor from './PerformanceMonitor';
 import './App.css';
 
 // Simplified types for the new architecture
@@ -36,6 +38,8 @@ interface FilterState {
   fogLevels: string[];
 }
 
+type ViewType = 'images' | 'cameras' | 'labelers' | 'performance';
+
 const getFogLevelColor = (fogLevel: string): string => {
   switch (fogLevel.toLowerCase()) {
     case 'clear': return '#28a745';
@@ -68,13 +72,16 @@ const App: React.FC = () => {
   });
   const [availableCameras, setAvailableCameras] = useState<string[]>([]);
   const [showCameraManager, setShowCameraManager] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewType>('images');
 
   const API_BASE = process.env.NODE_ENV === 'production' ? 'https://admin-api.karl.cam' : 'http://localhost:8001';
 
   useEffect(() => {
-    loadImages(true); // true = reset/initial load
-    loadAvailableCameras();
-  }, [filters]);
+    if (currentView === 'images') {
+      loadImages(true); // true = reset/initial load
+      loadAvailableCameras();
+    }
+  }, [filters, currentView]);
 
   const loadImages = async (reset: boolean = false) => {
     try {
@@ -167,6 +174,32 @@ const App: React.FC = () => {
     });
   };
 
+  if (currentView === 'cameras') {
+    return (
+      <CameraManager
+        isOpen={true}
+        onClose={() => setCurrentView('images')}
+        apiBase={API_BASE}
+      />
+    );
+  }
+
+  if (currentView === 'labelers') {
+    return (
+      <LabelerManager
+        onNavigateToPerformance={() => setCurrentView('performance')}
+      />
+    );
+  }
+
+  if (currentView === 'performance') {
+    return (
+      <PerformanceMonitor
+        onNavigateBack={() => setCurrentView('labelers')}
+      />
+    );
+  }
+
   if (loading && images.length === 0) {
     return <div className="loading">Loading images...</div>;
   }
@@ -174,26 +207,38 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="header">
-        <h1>KarlCam Image Browser</h1>
+        <h1>KarlCam Admin Dashboard</h1>
         <div className="stats">
           Total Images: {images.length}
           {hasMore && <span> (+ more available)</span>}
         </div>
       </header>
 
+      {/* Navigation Bar */}
+      <nav className="nav-bar">
+        <button 
+          className={`nav-btn ${currentView === 'images' ? 'active' : ''}`}
+          onClick={() => setCurrentView('images')}
+        >
+          🖼️ Images
+        </button>
+        <button 
+          className={`nav-btn ${currentView === 'cameras' ? 'active' : ''}`}
+          onClick={() => setCurrentView('cameras')}
+        >
+          📷 Cameras
+        </button>
+        <button 
+          className={`nav-btn ${currentView === 'labelers' ? 'active' : ''}`}
+          onClick={() => setCurrentView('labelers')}
+        >
+          🏷️ Labelers
+        </button>
+      </nav>
+
       <div className="main-content">
         {/* Sidebar Filters */}
         <div className="sidebar">
-          {/* Config Section */}
-          <div className="config-section">
-            <h3>Config</h3>
-            <button 
-              className="config-btn"
-              onClick={() => setShowCameraManager(true)}
-            >
-              📷 Cameras
-            </button>
-          </div>
 
           <h3>Filters</h3>
 
@@ -425,12 +470,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Camera Manager Modal */}
-      <CameraManager
-        isOpen={showCameraManager}
-        onClose={() => setShowCameraManager(false)}
-        apiBase={API_BASE}
-      />
     </div>
   );
 };
