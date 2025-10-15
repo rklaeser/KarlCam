@@ -400,23 +400,19 @@ class KarlCamPipeline:
         return await self.label_image_async(image, webcam)
     
     async def _run_registry_labelers(self, image: Image, webcam: Dict):
-        """Run labelers from registry based on their modes"""
-        # Get production and shadow labelers
-        production_labelers = self.registry.get_ready_labelers(['production'])
-        shadow_labelers = self.registry.get_ready_labelers(['shadow'])
+        """Run labelers from registry"""
+        # Get all enabled labelers (mode is now determined by environment)
+        all_labelers = self.registry.get_ready_labelers()
         
-        if not production_labelers:
-            logger.warning("No production labelers available in registry")
-            return {"status": "error", "error": "No production labelers available"}
+        if not all_labelers:
+            logger.warning("No labelers available in registry")
+            return {"status": "error", "error": "No labelers available"}
         
         # Prepare metadata
         metadata = {
             "webcam": webcam,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
-        
-        # Run all labelers (production + shadow)
-        all_labelers = production_labelers + shadow_labelers
         labeling_tasks = []
         
         for labeler, config in all_labelers:

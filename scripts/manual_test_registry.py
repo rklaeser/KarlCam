@@ -25,18 +25,13 @@ def test_registry_basic():
         # Test configuration loading
         logger.info(f"Loaded {len(registry.configs)} configurations")
         
-        # Test mode filtering
-        production = registry.get_production_labelers()
-        shadow = registry.get_shadow_labelers()
-        experimental = registry.get_experimental_labelers()
-        
-        logger.info(f"Production labelers: {[cfg['name'] for cfg in production]}")
-        logger.info(f"Shadow labelers: {[cfg['name'] for cfg in shadow]}")
-        logger.info(f"Experimental labelers: {[cfg['name'] for cfg in experimental]}")
+        # Test enabled labelers
+        enabled = registry.get_all_enabled_labelers()
+        logger.info(f"Enabled labelers: {[cfg['name'] for cfg in enabled]}")
         
         # Test ready labelers
-        ready = registry.get_ready_labelers(['production'])
-        logger.info(f"Ready production labelers: {len(ready)}")
+        ready = registry.get_ready_labelers()
+        logger.info(f"Ready labelers: {len(ready)}")
         
         for labeler, config in ready:
             logger.info(f"  - {config['name']}: {type(labeler).__name__}")
