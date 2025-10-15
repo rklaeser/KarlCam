@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LabelerConfig, LabelerPerformance, LabelerMode, LABELER_MODE_COLORS, LABELER_MODE_DESCRIPTIONS } from './types/labeler';
+import { LabelerConfig, LabelerPerformance } from './types/labeler';
 import { labelerApi } from './services/labelerApi';
 import './LabelerManager.css';
 
@@ -12,9 +12,6 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
   const [performance, setPerformance] = useState<LabelerPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLabeler, setSelectedLabeler] = useState<LabelerConfig | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -40,48 +37,12 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
     }
   };
 
-  const handleToggleEnabled = async (name: string, currentEnabled: boolean) => {
-    try {
-      setActionLoading(name);
-      
-      if (currentEnabled) {
-        await labelerApi.disableLabeler(name);
-      } else {
-        await labelerApi.enableLabeler(name);
-      }
-      
-      await loadData();
-    } catch (err) {
-      setError(`Failed to ${currentEnabled ? 'disable' : 'enable'} labeler`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleModeChange = async (name: string, newMode: LabelerMode) => {
-    try {
-      setActionLoading(name);
-      await labelerApi.setLabelerMode(name, newMode);
-      await loadData();
-    } catch (err) {
-      setError(`Failed to change labeler mode`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const getPerformanceForLabeler = (name: string): LabelerPerformance | null => {
     return performance.find(p => p.labeler_name === name) || null;
   };
 
-  const getModeIcon = (mode: LabelerMode): string => {
-    switch (mode) {
-      case 'production': return '🟢';
-      case 'shadow': return '👥';
-      case 'experimental': return '🧪';
-      case 'deprecated': return '🔴';
-      default: return '❓';
-    }
+  const getStatusIcon = (enabled: boolean): string => {
+    return enabled ? '🟢' : '🔴';
   };
 
   if (loading) {
@@ -112,19 +73,13 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
   return (
     <div className="labeler-manager">
       <div className="header">
-        <h2>Labeler Management</h2>
+        <h2>Labeler Configuration</h2>
         <div className="header-actions">
           <button 
             onClick={onNavigateToPerformance}
             className="performance-button"
           >
             📊 View Performance Analytics
-          </button>
-          <button 
-            onClick={() => setShowCreateForm(true)}
-            className="create-button"
-          >
-            ➕ Create New Labeler
           </button>
           <button 
             onClick={loadData}
@@ -135,27 +90,39 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
         </div>
       </div>
 
+      <div className="config-notice">
+        <h3>🔧 Configuration Management</h3>
+        <p>
+          Labeler configuration is now managed through environment variables for better deployment control.
+          To modify labeler settings, update environment variables and redeploy the service.
+        </p>
+        <div className="env-vars">
+          <h4>Environment Variables:</h4>
+          <ul>
+            <li><code>GEMINI_LABELER_ENABLED</code> - Enable/disable Gemini labeler (default: true)</li>
+            <li><code>GEMINI_MASKED_LABELER_ENABLED</code> - Enable/disable Gemini Masked labeler (default: false)</li>
+            <li><code>GEMINI_MODEL</code> - Gemini model name (default: gemini-2.0-flash)</li>
+            <li><code>GEMINI_TEMPERATURE</code> - Model temperature (default: 0.1)</li>
+            <li><code>GEMINI_LABELER_VERSION</code> - Labeler version (default: 1.0)</li>
+          </ul>
+        </div>
+      </div>
+
       <div className="summary-stats">
         <div className="stat-card">
           <h4>Total Labelers</h4>
           <span className="stat-value">{labelers.length}</span>
         </div>
         <div className="stat-card">
-          <h4>Production</h4>
-          <span className="stat-value production">
-            {labelers.filter(l => l.mode === 'production' && l.enabled).length}
+          <h4>Enabled</h4>
+          <span className="stat-value enabled">
+            {labelers.filter(l => l.enabled).length}
           </span>
         </div>
         <div className="stat-card">
-          <h4>Shadow</h4>
-          <span className="stat-value shadow">
-            {labelers.filter(l => l.mode === 'shadow' && l.enabled).length}
-          </span>
-        </div>
-        <div className="stat-card">
-          <h4>Experimental</h4>
-          <span className="stat-value experimental">
-            {labelers.filter(l => l.mode === 'experimental' && l.enabled).length}
+          <h4>Disabled</h4>
+          <span className="stat-value disabled">
+            {labelers.filter(l => !l.enabled).length}
           </span>
         </div>
       </div>
@@ -163,13 +130,12 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
       <div className="labeler-grid">
         {labelers.map((labeler) => {
           const perf = getPerformanceForLabeler(labeler.name);
-          const isLoading = actionLoading === labeler.name;
           
           return (
-            <div key={labeler.name} className={`labeler-card ${labeler.mode}`}>
+            <div key={labeler.name} className={`labeler-card ${labeler.enabled ? 'enabled' : 'disabled'}`}>
               <div className="labeler-header">
                 <div className="labeler-title">
-                  <span className="mode-icon">{getModeIcon(labeler.mode)}</span>
+                  <span className="status-icon">{getStatusIcon(labeler.enabled)}</span>
                   <h3>{labeler.name}</h3>
                   <span 
                     className={`status-badge ${labeler.enabled ? 'enabled' : 'disabled'}`}
@@ -177,33 +143,20 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
                     {labeler.enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
-                <div className="labeler-actions">
-                  <button
-                    onClick={() => handleToggleEnabled(labeler.name, labeler.enabled)}
-                    disabled={isLoading}
-                    className={`toggle-button ${labeler.enabled ? 'disable' : 'enable'}`}
-                  >
-                    {isLoading ? '⏳' : labeler.enabled ? '⏸️' : '▶️'}
-                  </button>
-                </div>
               </div>
 
               <div className="labeler-info">
                 <div className="info-row">
-                  <span className="label">Mode:</span>
-                  <span 
-                    className="mode-badge"
-                    style={{ backgroundColor: LABELER_MODE_COLORS[labeler.mode] }}
-                  >
-                    {labeler.mode}
-                  </span>
-                </div>
-                <div className="info-row">
                   <span className="label">Version:</span>
                   <span>{labeler.version}</span>
                 </div>
-                <div className="mode-description">
-                  {LABELER_MODE_DESCRIPTIONS[labeler.mode]}
+                <div className="info-row">
+                  <span className="label">Status:</span>
+                  <span 
+                    className={`status-text ${labeler.enabled ? 'enabled' : 'disabled'}`}
+                  >
+                    {labeler.enabled ? 'Active in pipeline' : 'Not running'}
+                  </span>
                 </div>
               </div>
 
@@ -237,21 +190,6 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
                 </div>
               )}
 
-              <div className="mode-controls">
-                <label>Change Mode:</label>
-                <select
-                  value={labeler.mode}
-                  onChange={(e) => handleModeChange(labeler.name, e.target.value as LabelerMode)}
-                  disabled={isLoading}
-                  className="mode-select"
-                >
-                  <option value="experimental">🧪 Experimental</option>
-                  <option value="shadow">👥 Shadow</option>
-                  <option value="production">🟢 Production</option>
-                  <option value="deprecated">🔴 Deprecated</option>
-                </select>
-              </div>
-
               {labeler.config && Object.keys(labeler.config).length > 0 && (
                 <div className="config-preview">
                   <h4>Configuration</h4>
@@ -268,10 +206,7 @@ const LabelerManager: React.FC<LabelerManagerProps> = ({ onNavigateToPerformance
       {labelers.length === 0 && (
         <div className="empty-state">
           <h3>No Labelers Configured</h3>
-          <p>Create your first labeler to get started with experimental labeling.</p>
-          <button onClick={() => setShowCreateForm(true)} className="create-button">
-            ➕ Create First Labeler
-          </button>
+          <p>Configure labelers using environment variables and restart the service.</p>
         </div>
       )}
     </div>

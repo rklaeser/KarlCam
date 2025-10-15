@@ -2,17 +2,9 @@
 
 export interface LabelerConfig {
   name: string;
-  mode: 'production' | 'shadow' | 'experimental' | 'deprecated';
   enabled: boolean;
   version: string;
   config: Record<string, any>;
-}
-
-export interface LabelerUpdate {
-  mode?: 'production' | 'shadow' | 'experimental' | 'deprecated';
-  enabled?: boolean;
-  version?: string;
-  config?: Record<string, any>;
 }
 
 export interface LabelerPerformance {
@@ -80,22 +72,4 @@ export interface DailyPerformance {
   total_daily_cost_cents: number | null;
 }
 
-export interface ModeChangeRequest {
-  mode: 'production' | 'shadow' | 'experimental' | 'deprecated';
-}
-
-export type LabelerMode = 'production' | 'shadow' | 'experimental' | 'deprecated';
-
-export const LABELER_MODE_COLORS: Record<LabelerMode, string> = {
-  production: '#28a745',
-  shadow: '#6c757d', 
-  experimental: '#ffc107',
-  deprecated: '#dc3545'
-};
-
-export const LABELER_MODE_DESCRIPTIONS: Record<LabelerMode, string> = {
-  production: 'Active in production pipeline',
-  shadow: 'Runs alongside production for comparison',
-  experimental: 'Testing phase, manual execution only',
-  deprecated: 'No longer used, pending removal'
-};
+// Mode-related types removed - configuration is now file-based

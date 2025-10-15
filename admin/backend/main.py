@@ -750,22 +750,14 @@ async def export_training_data():
     return {"message": "Training data export triggered"}
 
 
-# ============= LABELER MANAGEMENT ENDPOINTS =============
+# ============= LABELER CONFIG ENDPOINTS (READ-ONLY) =============
 
 class LabelerConfig(BaseModel):
-    """Labeler configuration model"""
+    """Labeler configuration model - read-only from environment"""
     name: str
-    mode: str = Field(..., pattern="^(production|shadow|experimental|deprecated)$")
     enabled: bool = True
     version: str = "1.0"
     config: Dict = {}
-
-class LabelerUpdate(BaseModel):
-    """Model for updating labeler configuration"""
-    mode: Optional[str] = Field(None, pattern="^(production|shadow|experimental|deprecated)$")
-    enabled: Optional[bool] = None
-    version: Optional[str] = None
-    config: Optional[Dict] = None
 
 class LabelerPerformance(BaseModel):
     """Labeler performance metrics model"""
@@ -791,23 +783,21 @@ class LabelerComparison(BaseModel):
 
 @app.get("/api/labelers", response_model=List[LabelerConfig])
 async def get_all_labelers():
-    """Get all labeler configurations"""
+    """Get all labeler configurations (read-only from environment)"""
     try:
-        query = """
-            SELECT name, mode, enabled, version, config
-            FROM labeler_config
-            ORDER BY name
-        """
-        rows = execute_query(query)
+        # Import here to avoid circular imports
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+        from pipeline.labelers.config import LABELER_CONFIG
         
         labelers = []
-        for row in rows:
+        for name, config in LABELER_CONFIG.items():
             labelers.append(LabelerConfig(
-                name=row[0],
-                mode=row[1],
-                enabled=row[2],
-                version=row[3] or "1.0",
-                config=row[4] or {}
+                name=name,
+                enabled=config["enabled"],
+                version=config["version"],
+                config={"model_name": config["model_name"]}
             ))
         
         return labelers
@@ -818,25 +808,23 @@ async def get_all_labelers():
 
 @app.get("/api/labelers/{labeler_name}", response_model=LabelerConfig)
 async def get_labeler(labeler_name: str):
-    """Get specific labeler configuration"""
+    """Get specific labeler configuration (read-only from environment)"""
     try:
-        query = """
-            SELECT name, mode, enabled, version, config
-            FROM labeler_config
-            WHERE name = %s
-        """
-        rows = execute_query(query, (labeler_name,))
+        # Import here to avoid circular imports
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+        from pipeline.labelers.config import LABELER_CONFIG
         
-        if not rows:
+        if labeler_name not in LABELER_CONFIG:
             raise HTTPException(status_code=404, detail="Labeler not found")
         
-        row = rows[0]
+        config = LABELER_CONFIG[labeler_name]
         return LabelerConfig(
-            name=row[0],
-            mode=row[1],
-            enabled=row[2],
-            version=row[3] or "1.0",
-            config=row[4] or {}
+            name=labeler_name,
+            enabled=config["enabled"],
+            version=config["version"],
+            config={"model_name": config["model_name"]}
         )
         
     except HTTPException:
@@ -844,220 +832,6 @@ async def get_labeler(labeler_name: str):
     except Exception as e:
         logger.error(f"Failed to get labeler {labeler_name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve labeler")
-
-@app.get("/api/labelers/by-mode/{mode}")
-async def get_labelers_by_mode(mode: str):
-    """Get labelers filtered by mode"""
-    if mode not in ["production", "shadow", "experimental", "deprecated"]:
-        raise HTTPException(status_code=400, detail="Invalid mode")
-    
-    try:
-        query = """
-            SELECT name, mode, enabled, version, config
-            FROM labeler_config
-            WHERE mode = %s AND enabled = true
-            ORDER BY name
-        """
-        rows = execute_query(query, (mode,))
-        
-        labelers = []
-        for row in rows:
-            labelers.append(LabelerConfig(
-                name=row[0],
-                mode=row[1],
-                enabled=row[2],
-                version=row[3] or "1.0",
-                config=row[4] or {}
-            ))
-        
-        return labelers
-        
-    except Exception as e:
-        logger.error(f"Failed to get labelers by mode {mode}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve labelers")
-
-@app.put("/api/labelers/{labeler_name}")
-async def update_labeler(labeler_name: str, update: LabelerUpdate):
-    """Update labeler configuration"""
-    try:
-        # Check if labeler exists
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler_name,))
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Labeler not found")
-        
-        # Build update query dynamically
-        update_fields = []
-        update_values = []
-        
-        if update.mode is not None:
-            update_fields.append("mode = %s")
-            update_values.append(update.mode)
-        
-        if update.enabled is not None:
-            update_fields.append("enabled = %s")
-            update_values.append(update.enabled)
-        
-        if update.version is not None:
-            update_fields.append("version = %s")
-            update_values.append(update.version)
-        
-        if update.config is not None:
-            update_fields.append("config = %s")
-            update_values.append(update.config)
-        
-        if not update_fields:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        
-        update_fields.append("updated_at = NOW()")
-        update_values.append(labeler_name)
-        
-        query = f"""
-            UPDATE labeler_config 
-            SET {', '.join(update_fields)}
-            WHERE name = %s
-        """
-        
-        execute_query(query, update_values)
-        
-        logger.info(f"Updated labeler {labeler_name}: {update.dict(exclude_none=True)}")
-        return {"message": f"Labeler {labeler_name} updated successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update labeler {labeler_name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update labeler")
-
-@app.post("/api/labelers")
-async def create_labeler(labeler: LabelerConfig):
-    """Create new labeler configuration"""
-    try:
-        # Check if labeler already exists
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler.name,))
-        
-        if existing:
-            raise HTTPException(status_code=400, detail="Labeler already exists")
-        
-        query = """
-            INSERT INTO labeler_config (name, mode, enabled, version, config)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        
-        execute_query(query, (
-            labeler.name,
-            labeler.mode,
-            labeler.enabled,
-            labeler.version,
-            labeler.config
-        ))
-        
-        logger.info(f"Created new labeler: {labeler.name}")
-        return {"message": f"Labeler {labeler.name} created successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to create labeler {labeler.name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create labeler")
-
-@app.delete("/api/labelers/{labeler_name}")
-async def delete_labeler(labeler_name: str):
-    """Delete labeler configuration"""
-    try:
-        # Check if labeler exists
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler_name,))
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Labeler not found")
-        
-        query = "DELETE FROM labeler_config WHERE name = %s"
-        execute_query(query, (labeler_name,))
-        
-        logger.info(f"Deleted labeler: {labeler_name}")
-        return {"message": f"Labeler {labeler_name} deleted successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete labeler {labeler_name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete labeler")
-
-@app.post("/api/labelers/{labeler_name}/enable")
-async def enable_labeler(labeler_name: str):
-    """Enable a labeler"""
-    try:
-        query = "UPDATE labeler_config SET enabled = true, updated_at = NOW() WHERE name = %s"
-        result = execute_query(query, (labeler_name,))
-        
-        # Check if any rows were affected
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler_name,))
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Labeler not found")
-        
-        logger.info(f"Enabled labeler: {labeler_name}")
-        return {"message": f"Labeler {labeler_name} enabled"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to enable labeler {labeler_name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to enable labeler")
-
-@app.post("/api/labelers/{labeler_name}/disable")
-async def disable_labeler(labeler_name: str):
-    """Disable a labeler"""
-    try:
-        query = "UPDATE labeler_config SET enabled = false, updated_at = NOW() WHERE name = %s"
-        execute_query(query, (labeler_name,))
-        
-        # Check if any rows were affected
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler_name,))
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Labeler not found")
-        
-        logger.info(f"Disabled labeler: {labeler_name}")
-        return {"message": f"Labeler {labeler_name} disabled"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to disable labeler {labeler_name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to disable labeler")
-
-@app.post("/api/labelers/{labeler_name}/set-mode")
-async def set_labeler_mode(labeler_name: str, mode_data: Dict[str, str]):
-    """Change labeler mode"""
-    mode = mode_data.get("mode")
-    if not mode or mode not in ["production", "shadow", "experimental", "deprecated"]:
-        raise HTTPException(status_code=400, detail="Invalid mode")
-    
-    try:
-        query = "UPDATE labeler_config SET mode = %s, updated_at = NOW() WHERE name = %s"
-        execute_query(query, (mode, labeler_name))
-        
-        # Check if any rows were affected
-        check_query = "SELECT name FROM labeler_config WHERE name = %s"
-        existing = execute_query(check_query, (labeler_name,))
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Labeler not found")
-        
-        logger.info(f"Set labeler {labeler_name} mode to {mode}")
-        return {"message": f"Labeler {labeler_name} mode set to {mode}"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to set mode for labeler {labeler_name}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to set labeler mode")
 
 # ============= PERFORMANCE MONITORING ENDPOINTS =============
 

@@ -1,78 +1,74 @@
 """
-Centralized configuration for labelers
+Centralized configuration for labelers using environment variables
 """
+import os
 
-# Model configurations
-GEMINI_MODELS = {
-    # The default Gemini model to use across the application
-    "default": "gemini-1.5-flash-latest",
-    
-    # Available model variants
-    "flash": "gemini-1.5-flash-latest",
-    "flash_latest": "gemini-1.5-flash-latest",
-    "flash_001": "gemini-1.5-flash-001",
-    "flash_002": "gemini-1.5-flash-002",
-    
-    # Pro models (if needed in future)
-    "pro": "gemini-1.5-pro-latest",
-    "pro_latest": "gemini-1.5-pro-latest",
-    "pro_001": "gemini-1.5-pro-001",
-    "pro_002": "gemini-1.5-pro-002",
+# Gemini model configuration from environment
+DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+# Model parameters from environment with defaults
+MODEL_CONFIG = {
+    "temperature": float(os.getenv("GEMINI_TEMPERATURE", "0.1")),
+    "max_output_tokens": int(os.getenv("GEMINI_MAX_TOKENS", "1024")),
+    "top_p": float(os.getenv("GEMINI_TOP_P", "0.95")),
+    "top_k": int(os.getenv("GEMINI_TOP_K", "40")),
 }
 
-# Default model to use when not specified
-DEFAULT_GEMINI_MODEL = GEMINI_MODELS["default"]
-
-# Model parameters
-MODEL_CONFIGS = {
-    "gemini-1.5-flash-latest": {
-        "temperature": 0.1,
-        "max_output_tokens": 1024,
-        "top_p": 0.95,
-        "top_k": 40,
+# Labeler configuration 
+LABELER_CONFIG = {
+    "gemini": {
+        "enabled": os.getenv("GEMINI_LABELER_ENABLED", "true").lower() == "true",
+        "model_name": DEFAULT_GEMINI_MODEL,
+        "version": os.getenv("GEMINI_LABELER_VERSION", "1.0"),
     },
-    "gemini-1.5-pro-latest": {
-        "temperature": 0.1,
-        "max_output_tokens": 2048,
-        "top_p": 0.95,
-        "top_k": 40,
-    },
+    "gemini_masked": {
+        "enabled": os.getenv("GEMINI_MASKED_LABELER_ENABLED", "false").lower() == "true", 
+        "model_name": DEFAULT_GEMINI_MODEL,
+        "version": os.getenv("GEMINI_MASKED_LABELER_VERSION", "1.0"),
+    }
 }
 
 def get_model_name(model_key: str = None) -> str:
     """
-    Get the full model name for a given key or default.
+    Get the model name from environment configuration.
     
     Args:
-        model_key: Optional key to look up in GEMINI_MODELS
+        model_key: Ignored, kept for compatibility
         
     Returns:
-        Full model name string
+        The configured Gemini model name
     """
-    if model_key is None:
-        return DEFAULT_GEMINI_MODEL
-    
-    # If it's already a full model name, return it
-    if model_key in MODEL_CONFIGS:
-        return model_key
-    
-    # Look up in the model mapping
-    return GEMINI_MODELS.get(model_key, DEFAULT_GEMINI_MODEL)
+    return DEFAULT_GEMINI_MODEL
 
 def get_model_config(model_name: str = None) -> dict:
     """
-    Get the configuration parameters for a model.
+    Get the model configuration parameters from environment.
     
     Args:
-        model_name: Model name to get config for
+        model_name: Ignored, kept for compatibility
         
     Returns:
         Dictionary of model configuration parameters
     """
-    if model_name is None:
-        model_name = DEFAULT_GEMINI_MODEL
+    return MODEL_CONFIG
+
+def get_enabled_labelers() -> list[str]:
+    """
+    Get list of enabled labeler names from configuration.
     
-    # Resolve model name if it's a key
-    model_name = get_model_name(model_name)
+    Returns:
+        List of enabled labeler names
+    """
+    return [name for name, config in LABELER_CONFIG.items() if config["enabled"]]
+
+def get_labeler_config(labeler_name: str) -> dict:
+    """
+    Get configuration for specific labeler.
     
-    return MODEL_CONFIGS.get(model_name, MODEL_CONFIGS[DEFAULT_GEMINI_MODEL])
+    Args:
+        labeler_name: Name of the labeler
+        
+    Returns:
+        Dictionary of labeler configuration
+    """
+    return LABELER_CONFIG.get(labeler_name, {})

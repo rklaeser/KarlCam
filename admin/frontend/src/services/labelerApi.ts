@@ -3,12 +3,10 @@
 import axios from 'axios';
 import {
   LabelerConfig,
-  LabelerUpdate,
   LabelerPerformance,
   LabelerDetailedPerformance,
   LabelerComparison,
-  DailyPerformance,
-  ModeChangeRequest
+  DailyPerformance
 } from '../types/labeler';
 
 // Use environment variable for API base URL, fallback to localhost for development
@@ -31,7 +29,7 @@ api.interceptors.response.use(
 );
 
 export const labelerApi = {
-  // ============= CONFIGURATION MANAGEMENT =============
+  // ============= CONFIGURATION (READ-ONLY) =============
   
   async getAllLabelers(): Promise<LabelerConfig[]> {
     const response = await api.get('/api/labelers');
@@ -40,41 +38,6 @@ export const labelerApi = {
 
   async getLabeler(name: string): Promise<LabelerConfig> {
     const response = await api.get(`/api/labelers/${name}`);
-    return response.data;
-  },
-
-  async getLabelersbyMode(mode: string): Promise<LabelerConfig[]> {
-    const response = await api.get(`/api/labelers/by-mode/${mode}`);
-    return response.data;
-  },
-
-  async updateLabeler(name: string, update: LabelerUpdate): Promise<{ message: string }> {
-    const response = await api.put(`/api/labelers/${name}`, update);
-    return response.data;
-  },
-
-  async createLabeler(labeler: LabelerConfig): Promise<{ message: string }> {
-    const response = await api.post('/api/labelers', labeler);
-    return response.data;
-  },
-
-  async deleteLabeler(name: string): Promise<{ message: string }> {
-    const response = await api.delete(`/api/labelers/${name}`);
-    return response.data;
-  },
-
-  async enableLabeler(name: string): Promise<{ message: string }> {
-    const response = await api.post(`/api/labelers/${name}/enable`);
-    return response.data;
-  },
-
-  async disableLabeler(name: string): Promise<{ message: string }> {
-    const response = await api.post(`/api/labelers/${name}/disable`);
-    return response.data;
-  },
-
-  async setLabelerMode(name: string, mode: string): Promise<{ message: string }> {
-    const response = await api.post(`/api/labelers/${name}/set-mode`, { mode });
     return response.data;
   },
 
@@ -137,15 +100,9 @@ export const labelerApi = {
     return `${Math.round(confidence * 100)}%`;
   },
 
-  // Get mode badge color
-  getModeColor(mode: string): string {
-    switch (mode) {
-      case 'production': return '#28a745';
-      case 'shadow': return '#6c757d';
-      case 'experimental': return '#ffc107';
-      case 'deprecated': return '#dc3545';
-      default: return '#6c757d';
-    }
+  // Get status badge color
+  getStatusColor(enabled: boolean): string {
+    return enabled ? '#28a745' : '#dc3545';
   }
 };
 
