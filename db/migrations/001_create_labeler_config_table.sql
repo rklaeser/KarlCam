@@ -28,6 +28,6 @@ CREATE INDEX IF NOT EXISTS idx_labeler_config_enabled ON labeler_config(enabled)
 -- Insert default configurations for existing labelers
 INSERT INTO labeler_config (name, mode, enabled, version, config) 
 VALUES 
-    ('gemini', 'production', true, '1.0', '{"model": "gemini-1.5-flash", "temperature": 0.1}'),
-    ('gemini_masked', 'shadow', true, '1.0', '{"model": "gemini-1.5-flash", "temperature": 0.1, "use_mask": true}')
+    ('gemini', 'production', true, '1.0', '{"model": "gemini-1.5-flash-latest", "temperature": 0.1}'),
+    ('gemini_masked', 'shadow', true, '1.0', '{"model": "gemini-1.5-flash-latest", "temperature": 0.1, "use_mask": true}')
 ON CONFLICT (name) DO NOTHING;

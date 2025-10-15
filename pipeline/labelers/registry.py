@@ -16,6 +16,7 @@ from db.manager import DatabaseManager
 from db.connection import execute_query
 from .base import BaseLabeler
 from . import create_labeler
+from .config import get_model_name
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,15 @@ class LabelerRegistry:
         if labeler_name == 'gemini':
             # GeminiLabeler only accepts model_name and version
             if 'model' in config:
-                mapped['model_name'] = config['model']
+                # Use centralized config to resolve model name
+                mapped['model_name'] = get_model_name(config['model'])
             # Filter out unsupported parameters like 'temperature'
             
         elif labeler_name == 'gemini_masked':
             # GeminiMaskedLabeler - check what parameters it accepts
             if 'model' in config:
-                mapped['model_name'] = config['model']
+                # Use centralized config to resolve model name
+                mapped['model_name'] = get_model_name(config['model'])
             # TODO: Add other supported parameters as needed
         
         else:

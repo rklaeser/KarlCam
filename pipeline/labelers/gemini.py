@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 from typing import Dict
 from .base import BaseLabeler
+from .config import DEFAULT_GEMINI_MODEL, get_model_name
 
 def load_env_file():
     """Load environment variables from .env file"""
@@ -27,7 +28,14 @@ load_env_file()
 class GeminiLabeler(BaseLabeler):
     """Standard Gemini Vision API based labeler"""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash", version: str = "1.0"):
+    def __init__(self, model_name: str = None, version: str = "1.0"):
+        # Use centralized config for model name
+        if model_name is None:
+            model_name = DEFAULT_GEMINI_MODEL
+        else:
+            # Resolve model name if it's a key
+            model_name = get_model_name(model_name)
+        
         super().__init__(f"gemini_{model_name.replace('.', '_').replace('-', '_')}", version)
         self.model_name = model_name
         self.gemini_model = None
@@ -109,7 +117,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Test Gemini labeler on an image')
     parser.add_argument('--image', required=True, help='Path to image file')
-    parser.add_argument('--model', default='gemini-1.5-flash', help='Gemini model to use')
+    parser.add_argument('--model', default=None, help='Gemini model to use (defaults to config default)')
     args = parser.parse_args()
     
     # Test the labeler
