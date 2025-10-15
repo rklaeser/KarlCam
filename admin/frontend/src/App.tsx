@@ -217,19 +217,19 @@ const App: React.FC = () => {
       {/* Navigation Bar */}
       <nav className="nav-bar">
         <button 
-          className={`nav-btn ${currentView === 'images' ? 'active' : ''}`}
+          className="nav-btn active"
           onClick={() => setCurrentView('images')}
         >
           🖼️ Images
         </button>
         <button 
-          className={`nav-btn ${currentView === 'cameras' ? 'active' : ''}`}
+          className="nav-btn"
           onClick={() => setCurrentView('cameras')}
         >
           📷 Cameras
         </button>
         <button 
-          className={`nav-btn ${currentView === 'labelers' ? 'active' : ''}`}
+          className="nav-btn"
           onClick={() => setCurrentView('labelers')}
         >
           🏷️ Labelers
