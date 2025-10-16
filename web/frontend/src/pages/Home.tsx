@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import FogMap from '../components/FogMap';
 import Sidebar from '../components/Sidebar';
+import MaintenanceBanner from '../components/MaintenanceBanner';
 import { ErrorDisplay } from '../components/ErrorDisplay';
 import { useAppData, useAppActions } from '../context';
 import { API_BASE_URL } from '../services/api';
@@ -23,6 +24,9 @@ const Home: React.FC = () => {
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex flex-col overflow-hidden">
+      {/* Maintenance Banner */}
+      <MaintenanceBanner isVisible={true} />
+      
       {/* Hamburger Menu Button */}
       <button
         onClick={() => setSidebarOpen(true)}
