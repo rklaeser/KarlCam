@@ -432,7 +432,7 @@ class KarlCamPipeline:
                 logger.error(f"❌ {config['name']} labeler failed: {result}")
             elif result.get('status') == 'success':
                 successful_results.append(result)
-                logger.info(f"✅ {config['name']} ({config['mode']}): "
+                logger.info(f"✅ {config['name']}: "
                            f"Fog {result.get('fog_level', 'Unknown')} "
                            f"(score: {result.get('fog_score', 'N/A')}, "
                            f"confidence: {result.get('confidence', 'N/A')})")
@@ -465,8 +465,7 @@ class KarlCamPipeline:
         if isinstance(result, dict) and result.get('status') == 'success':
             # The metrics wrapper already added performance data
             result['labeler_name'] = config['name']
-            result['labeler_version'] = config['version'] 
-            result['labeler_mode'] = config['mode']
+            result['labeler_version'] = config['version']
         
         return result
     
