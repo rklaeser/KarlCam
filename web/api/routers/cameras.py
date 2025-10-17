@@ -4,6 +4,7 @@ Camera endpoints for KarlCam Fog API
 This module provides endpoints for accessing fog detection data from cameras
 positioned around the San Francisco Bay Area.
 """
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Path, Query
 from typing import Optional
 from datetime import datetime
@@ -21,6 +22,8 @@ from ..schemas.common import (
     CameraDetailResponse,
     HistoryItemResponse
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/public", 
