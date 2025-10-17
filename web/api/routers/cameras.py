@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime
 
 from ..services.camera_service import CameraService
+from ..services.on_demand_service import OnDemandService
 from ..core.dependencies import get_db_manager
 from ..core.config import settings
 from ..schemas.common import (
@@ -293,3 +294,63 @@ async def get_camera_detail(
         history_hours=hours_to_use,
         history_count=len(history)
     )
+
+
+@router.get(
+    "/cameras/{camera_id}/latest",
+    summary="Get latest camera data with on-demand refresh",
+    description="""
+    Returns the latest fog detection data for a specific camera.
+    
+    **On-Demand Processing**: If the cached data is older than 30 minutes,
+    this endpoint will automatically fetch a fresh image from the webcam
+    and analyze it using AI before returning the results.
+    
+    ## Behavior
+    
+    * **Fresh data (<30 min)**: Returns immediately from cache (~100ms)
+    * **Stale data (>30 min)**: Fetches and analyzes new image (~3-5 seconds)
+    * **Error handling**: Returns stale data if refresh fails
+    
+    ## Response includes
+    
+    * Current fog score and level
+    * AI confidence in the assessment
+    * Reasoning for the fog detection
+    * Visibility estimate
+    * Weather conditions observed
+    * Image URL and timestamp
+    
+    This endpoint implements the cost-optimized on-demand architecture,
+    only processing images when users actually need fresh data.
+    """,
+    responses={
+        404: {
+            "description": "Camera not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Camera not found"}
+                }
+            }
+        }
+    }
+)
+async def get_camera_latest(
+    camera_id: str = Path(..., description="Unique camera identifier"),
+    db_manager=Depends(get_db_manager)
+):
+    """Get latest camera data with automatic refresh if stale"""
+    try:
+        service = OnDemandService(db_manager)
+        result = service.get_latest_with_refresh(camera_id)
+        
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Camera {camera_id} not found")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting latest data for camera {camera_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")

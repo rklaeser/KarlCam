@@ -43,7 +43,7 @@ start-api:
 	cd web/api && source venv/bin/activate && pip install -r requirements.txt
 	@echo "Starting API server on http://localhost:8000"
 	@echo "Press Ctrl+C to stop the server"
-	cd web && source api/venv/bin/activate && exec python -m api.main
+	source web/api/venv/bin/activate && PYTHONPATH=. exec python -m web.api.main
 
 # Frontend: npm install + start
 start-frontend:
