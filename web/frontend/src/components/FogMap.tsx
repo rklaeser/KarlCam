@@ -17,7 +17,7 @@ interface FogMapProps {
 
 const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
   // Use custom hook for image management
-  const { markerImages, loadingImages, imageTimestamps, fetchImage } = useCameraImages(webcams, apiBase);
+  const { markerImages, loadingImages, imageTimestamps, cameraData, fetchImage } = useCameraImages(webcams, apiBase);
   
   // Modal state
   const [selectedWebcam, setSelectedWebcam] = useState<Webcam | null>(null);
@@ -50,17 +50,34 @@ const FogMap: React.FC<FogMapProps> = ({ webcams, cameras = [], apiBase }) => {
         {webcams
           .filter(webcam => markerImages.has(webcam.id))
           .map(webcam => {
-            // Find corresponding camera conditions
-            const cameraData = cameras.find(cam => 
-              cam.id === webcam.id || 
+            // Get camera data from on-demand hook (preferred) or fallback to batch data
+            const latestData = cameraData.get(webcam.id);
+            const batchData = cameras.find(cam =>
+              cam.id === webcam.id ||
               (Math.abs(cam.lat - webcam.lat) < 0.001 && Math.abs(cam.lon - webcam.lon) < 0.001)
             );
-            
+
+            // Convert on-demand data to CameraConditions format if available
+            const cameraConditions = latestData ? {
+              id: latestData.camera_id,
+              name: latestData.camera_name,
+              lat: latestData.latitude,
+              lon: latestData.longitude,
+              description: latestData.description,
+              fog_score: latestData.fog_score ?? 0,
+              fog_level: latestData.fog_level,
+              confidence: latestData.confidence,
+              weather_detected: latestData.weather_conditions && latestData.weather_conditions.length > 0,
+              weather_confidence: latestData.confidence,
+              timestamp: latestData.timestamp,
+              active: true
+            } : batchData;
+
             return (
               <CameraMarker
                 key={webcam.id}
                 webcam={webcam}
-                cameraData={cameraData || undefined}
+                cameraData={cameraConditions || undefined}
                 imageUrl={markerImages.get(webcam.id) || undefined}
                 isLoading={loadingImages.has(webcam.id)}
                 onMarkerClick={handleMarkerClick}

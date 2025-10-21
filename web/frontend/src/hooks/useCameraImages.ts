@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Webcam } from '../types';
+import { Webcam, CameraLatestResponse } from '../types';
 
 export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
   const [markerImages, setMarkerImages] = useState<Map<string, string>>(new Map());
   const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
   const [imageTimestamps, setImageTimestamps] = useState<Map<string, Date>>(new Map());
+  const [cameraData, setCameraData] = useState<Map<string, CameraLatestResponse>>(new Map());
 
   useEffect(() => {
     if (webcams.length === 0) return;
@@ -23,6 +24,9 @@ export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
 
         if (response.ok && data.image_url) {
           console.log(`✅ Loaded image for ${webcam.id} (age: ${data.age_minutes?.toFixed(1)}min)`, data);
+
+          // Store the complete camera data
+          setCameraData(prev => new Map(prev.set(webcam.id, data)));
 
           // Update state immediately for this specific image
           setMarkerImages(prev => new Map(prev.set(webcam.id, data.image_url)));
@@ -61,6 +65,7 @@ export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
     // Clear previous images and set loading state
     setMarkerImages(new Map());
     setImageTimestamps(new Map());
+    setCameraData(new Map());
     setLoadingImages(new Set(webcams.map(w => w.id)));
     
     // Start loading all images independently
@@ -78,6 +83,9 @@ export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
       const data = await response.json();
 
       if (response.ok && data.image_url) {
+        // Store the complete camera data
+        setCameraData(prev => new Map(prev.set(webcamId, data)));
+
         // Cache it for future use
         setMarkerImages(prev => new Map(prev.set(webcamId, data.image_url)));
 
@@ -100,6 +108,7 @@ export const useCameraImages = (webcams: Webcam[], apiBase: string) => {
     markerImages,
     loadingImages,
     imageTimestamps,
+    cameraData,
     fetchImage
   };
 };
