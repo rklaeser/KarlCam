@@ -18,7 +18,7 @@ class GeminiService:
     """Service for analyzing images using Gemini Vision API"""
     
     def __init__(self):
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
         self.model = None
         self._initialize()
     
