@@ -12,7 +12,8 @@ export type {
   WebcamsListResponse,
   SystemStatsResponse,
   HistoryItem,
-  CameraDetailResponse
+  CameraDetailResponse,
+  CameraLatestResponse
 } from './api';
 
 // State management types

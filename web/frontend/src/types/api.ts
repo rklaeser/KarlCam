@@ -92,3 +92,21 @@ export interface CameraDetailResponse {
   history_hours: number;
   history_count: number;
 }
+
+// On-demand camera data with fresh analysis
+export interface CameraLatestResponse {
+  camera_id: string;
+  camera_name: string;
+  latitude: number;
+  longitude: number;
+  description: string;
+  image_url: string;
+  timestamp: string;
+  age_minutes: number;
+  fog_score: number | null;
+  fog_level: string;
+  confidence: number;
+  reasoning: string;
+  visibility_estimate: string;
+  weather_conditions: string[];
+}

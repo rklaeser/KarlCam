@@ -4,13 +4,14 @@
  */
 
 import api from './api';
-import { 
-  CamerasListResponse, 
-  WebcamsListResponse, 
-  SystemStatus, 
+import {
+  CamerasListResponse,
+  WebcamsListResponse,
+  SystemStatus,
   PublicConfig,
   SystemStatsResponse,
-  CameraDetailResponse
+  CameraDetailResponse,
+  CameraLatestResponse
 } from '../types';
 
 /**
@@ -102,13 +103,31 @@ export class DataService {
   }
 
   /**
+   * Get the latest camera data with on-demand refresh
+   * Fetches fresh image and analysis if data is stale (>30 minutes)
+   * @param cameraId - The camera identifier
+   */
+  async getCameraLatest(cameraId: string): Promise<CameraLatestResponse> {
+    try {
+      const response = await api.get<CameraLatestResponse>(
+        `/api/public/cameras/${cameraId}/latest`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching latest data for ${cameraId}:`, error);
+      throw new Error(`Failed to load latest data for camera ${cameraId}.`);
+    }
+  }
+
+  /**
    * Get the latest image URL for a specific camera
    * @param cameraId - The camera identifier
+   * @deprecated Use getCameraLatest() instead for full data with on-demand refresh
    */
   async getLatestImageUrl(cameraId: string): Promise<string> {
     try {
-      const response = await api.get(`/api/public/cameras/${cameraId}/latest-image`);
-      return response.data.image_url;
+      const data = await this.getCameraLatest(cameraId);
+      return data.image_url;
     } catch (error) {
       console.error(`Error fetching latest image for ${cameraId}:`, error);
       throw new Error(`Failed to load latest image for camera ${cameraId}.`);
@@ -127,5 +146,6 @@ export const {
   getPublicConfig,
   getSystemStats,
   getCameraDetail,
+  getCameraLatest,
   getLatestImageUrl
 } = dataService;
