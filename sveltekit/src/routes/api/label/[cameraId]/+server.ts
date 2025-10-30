@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getFirestoreAdmin } from '$lib/server/firebase';
+import { uploadImage } from '$lib/server/storage';
 import { env } from '$env/dynamic/private';
 import type { CameraLabel, LabelResponse } from '$lib/types';
 
@@ -10,6 +11,11 @@ interface GeminiResponse {
 	confidence: number;
 	reasoning: string;
 	weather_conditions: string[];
+}
+
+interface LabelResult {
+	geminiResponse: GeminiResponse;
+	imageBuffer: ArrayBuffer;
 }
 
 /**
@@ -50,29 +56,60 @@ async function getLatestLabel(cameraId: string, maxAgeMinutes: number = 30): Pro
 
 /**
  * Label an image with Gemini AI
+ * Returns both the Gemini response and the image buffer for uploading to Cloud Storage
  */
-async function labelImageWithGemini(imageUrl: string, cameraName: string): Promise<GeminiResponse> {
-	// 1. Fetch image from URL
-	const imageResponse = await fetch(imageUrl);
-	if (!imageResponse.ok) {
-		throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
-	}
+async function labelImageWithGemini(imageUrl: string, cameraName: string): Promise<LabelResult | null> {
+	try {
+		// Parse URL and extract credentials if present
+		let fetchUrl = imageUrl;
+		let authHeader: { Authorization?: string } = {};
 
-	// 2. Convert to base64
-	const imageBuffer = await imageResponse.arrayBuffer();
-	const base64Image = Buffer.from(imageBuffer).toString('base64');
+		try {
+			const urlObj = new URL(imageUrl);
 
-	// 3. Call Gemini API
-	const geminiResponse = await fetch(
-		`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
-		{
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{
-					parts: [
-						{
-							text: `Analyze this webcam image from ${cameraName} in San Francisco for fog conditions.
+			// Extract HTTP basic auth credentials if present
+			if (urlObj.username || urlObj.password) {
+				console.log(`[API] Detected HTTP basic auth in URL for ${cameraName}`);
+
+				// Create Authorization header
+				const credentials = Buffer.from(`${urlObj.username}:${urlObj.password}`).toString('base64');
+				authHeader.Authorization = `Basic ${credentials}`;
+
+				// Remove credentials from URL
+				urlObj.username = '';
+				urlObj.password = '';
+				fetchUrl = urlObj.toString();
+			}
+		} catch (e) {
+			console.warn(`[API] Invalid image URL: ${imageUrl}`);
+			return null;
+		}
+
+		// 1. Fetch image from URL with optional auth header
+		const imageResponse = await fetch(fetchUrl, {
+			headers: authHeader
+		});
+
+		if (!imageResponse.ok) {
+			console.warn(`[API] Failed to fetch image: ${imageResponse.statusText}`);
+			return null;
+		}
+
+		// 2. Convert to base64
+		const imageBuffer = await imageResponse.arrayBuffer();
+		const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+		// 3. Call Gemini API
+		const apiResponse = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					contents: [{
+						parts: [
+							{
+								text: `Analyze this webcam image from ${cameraName} in San Francisco for fog conditions.
 
 Return JSON with:
 - fog_score: 0-100 (0=clear, 100=very heavy fog)
@@ -82,34 +119,46 @@ Return JSON with:
 - weather_conditions: Array like ["fog", "overcast", "clear"]
 
 Focus on visibility and atmospheric haze.`
-						},
-						{
-							inline_data: {
-								mime_type: 'image/jpeg',
-								data: base64Image
+							},
+							{
+								inline_data: {
+									mime_type: 'image/jpeg',
+									data: base64Image
+								}
 							}
-						}
-					]
-				}]
-			})
+						]
+					}]
+				})
+			}
+		);
+
+		if (!apiResponse.ok) {
+			const errorText = await apiResponse.text();
+			console.warn(`[API] Gemini API error: ${apiResponse.statusText}`);
+			return null;
 		}
-	);
 
-	if (!geminiResponse.ok) {
-		const errorText = await geminiResponse.text();
-		throw new Error(`Gemini API error: ${geminiResponse.statusText} - ${errorText}`);
+		const result = await apiResponse.json();
+		const text = result.candidates[0].content.parts[0].text;
+
+		// Extract JSON from response
+		const jsonMatch = text.match(/\{[\s\S]*\}/);
+		if (!jsonMatch) {
+			console.warn(`[API] Failed to parse Gemini response`);
+			return null;
+		}
+
+		const geminiResponse: GeminiResponse = JSON.parse(jsonMatch[0]);
+
+		// Return both the Gemini response and the image buffer
+		return {
+			geminiResponse,
+			imageBuffer
+		};
+	} catch (error) {
+		console.warn(`[API] Error in labelImageWithGemini:`, error instanceof Error ? error.message : error);
+		return null;
 	}
-
-	const result = await geminiResponse.json();
-	const text = result.candidates[0].content.parts[0].text;
-
-	// Extract JSON from response
-	const jsonMatch = text.match(/\{[\s\S]*\}/);
-	if (!jsonMatch) {
-		throw new Error('Failed to parse Gemini response');
-	}
-
-	return JSON.parse(jsonMatch[0]);
 }
 
 /**
@@ -133,40 +182,65 @@ export const GET: RequestHandler = async ({ params }) => {
 	const { cameraId } = params;
 
 	try {
+		console.log(`[API] Received label request for camera: ${cameraId}`);
+
 		// Check for recent label
 		const recentLabel = await getLatestLabel(cameraId, 30);
 		if (recentLabel) {
+			console.log(`[API] Found recent label in Firestore for ${cameraId}`);
 			return json<LabelResponse>({
 				source: 'firestore',
 				label: recentLabel
 			});
 		}
 
+		console.log(`[API] No recent label found, generating new label for ${cameraId}`);
+
 		// No recent label - generate new one
 		const db = getFirestoreAdmin();
 		const webcamDoc = await db.collection('webcams').doc(cameraId).get();
 
 		if (!webcamDoc.exists) {
+			console.error(`[API] Camera not found: ${cameraId}`);
 			return json({ error: 'Camera not found' }, { status: 404 });
 		}
 
 		const webcam = webcamDoc.data()!;
+		console.log(`[API] Fetched webcam data for ${cameraId}: ${webcam.name}`);
 
 		// Label image with Gemini
-		const geminiResult = await labelImageWithGemini(webcam.url, webcam.name);
+		console.log(`[API] Calling Gemini to label image for ${cameraId}`);
+		const labelResult = await labelImageWithGemini(webcam.url, webcam.name);
 
-		// Create label
+		// If labeling failed (image unavailable, fetch error, etc.), return null label
+		if (!labelResult) {
+			console.warn(`[API] Unable to generate label for ${cameraId} - camera unavailable`);
+			return json<LabelResponse>({
+				source: 'unavailable',
+				label: null
+			});
+		}
+
+		const { geminiResponse, imageBuffer } = labelResult;
+		console.log(`[API] Gemini result for ${cameraId}:`, geminiResponse);
+
+		// Upload image to Cloud Storage
 		const now = new Date();
+		console.log(`[API] Uploading image to Cloud Storage for ${cameraId}`);
+		const cloudStorageUrl = await uploadImage(imageBuffer, cameraId, now);
+		console.log(`[API] Image uploaded to: ${cloudStorageUrl}`);
+
+		// Create label with Cloud Storage URL
 		const label: CameraLabel = {
 			camera_id: cameraId,
 			camera_name: webcam.name,
 			timestamp: now,
-			image_url: webcam.url,
-			fog_score: geminiResult.fog_score,
-			fog_level: geminiResult.fog_level,
-			confidence: geminiResult.confidence,
-			reasoning: geminiResult.reasoning,
-			weather_conditions: geminiResult.weather_conditions,
+			image_url: cloudStorageUrl, // Use Cloud Storage URL, not webcam URL
+			fog_score: geminiResponse.fog_score,
+			fog_level: geminiResponse.fog_level,
+			confidence: geminiResponse.confidence,
+			reasoning: geminiResponse.reasoning,
+			weather_conditions: geminiResponse.weather_conditions,
 			latitude: webcam.latitude,
 			longitude: webcam.longitude,
 			labeler_name: 'gemini-2.0-flash-exp',
@@ -174,14 +248,16 @@ export const GET: RequestHandler = async ({ params }) => {
 		};
 
 		// Save to Firestore
+		console.log(`[API] Saving label to Firestore for ${cameraId}`);
 		await saveLabel(label);
 
+		console.log(`[API] Successfully generated and saved label for ${cameraId}`);
 		return json<LabelResponse>({
 			source: 'on-demand',
 			label
 		});
 	} catch (error) {
-		console.error('Error labeling image:', error);
+		console.error(`[API] Unexpected error labeling image for ${cameraId}:`, error);
 		return json(
 			{ error: error instanceof Error ? error.message : 'Unknown error' },
 			{ status: 500 }

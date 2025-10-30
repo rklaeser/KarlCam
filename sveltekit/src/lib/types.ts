@@ -29,6 +29,6 @@ export interface CameraLabel {
 }
 
 export interface LabelResponse {
-	source: 'firestore' | 'on-demand';
-	label: CameraLabel;
+	source: 'firestore' | 'on-demand' | 'unavailable';
+	label: CameraLabel | null;
 }
