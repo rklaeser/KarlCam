@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getFirestoreAdmin } from '$lib/server/firebase';
 import { uploadImage } from '$lib/server/storage';
-import { env } from '$env/dynamic/private';
+import { GEMINI_API_KEY } from '$env/static/private';
 import type { CameraLabel, LabelResponse } from '$lib/types';
 
 interface GeminiResponse {
@@ -101,7 +101,7 @@ async function labelImageWithGemini(imageUrl: string, cameraName: string): Promi
 
 		// 3. Call Gemini API
 		const apiResponse = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
+			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },

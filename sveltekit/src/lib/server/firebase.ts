@@ -1,6 +1,10 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
-import { env } from '$env/dynamic/private';
+import {
+	FIREBASE_PROJECT_ID,
+	FIREBASE_CLIENT_EMAIL,
+	FIREBASE_PRIVATE_KEY
+} from '$env/static/private';
 
 let app: App;
 let db: Firestore;
@@ -16,16 +20,12 @@ export function initializeFirebase(): Firestore {
 
 	// Check if already initialized
 	if (getApps().length === 0) {
-		if (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_CLIENT_EMAIL || !env.FIREBASE_PRIVATE_KEY) {
-			throw new Error('Firebase environment variables are not configured');
-		}
-
 		app = initializeApp({
 			credential: cert({
-				projectId: env.FIREBASE_PROJECT_ID,
-				clientEmail: env.FIREBASE_CLIENT_EMAIL,
+				projectId: FIREBASE_PROJECT_ID,
+				clientEmail: FIREBASE_CLIENT_EMAIL,
 				// Replace literal \n with actual newlines
-				privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/gm, '\n')
+				privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/gm, '\n')
 			})
 		});
 	} else {

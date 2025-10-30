@@ -1,5 +1,10 @@
 import { Storage } from '@google-cloud/storage';
-import { env } from '$env/dynamic/private';
+import {
+	FIREBASE_PROJECT_ID,
+	FIREBASE_CLIENT_EMAIL,
+	FIREBASE_PRIVATE_KEY,
+	BUCKET_NAME
+} from '$env/static/private';
 
 let storage: Storage | null = null;
 
@@ -8,7 +13,7 @@ let storage: Storage | null = null;
  * (consolidated single bucket for all environments)
  */
 function getBucketName(): string {
-	return env.BUCKET_NAME || 'karlcam-production-data';
+	return BUCKET_NAME || 'karlcam-production-data';
 }
 
 /**
@@ -17,17 +22,13 @@ function getBucketName(): string {
 function getStorageClient(): Storage {
 	if (!storage) {
 		// Firebase Admin SDK credentials work for Cloud Storage too
-		if (env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY) {
-			storage = new Storage({
-				projectId: env.FIREBASE_PROJECT_ID,
-				credentials: {
-					client_email: env.FIREBASE_CLIENT_EMAIL,
-					private_key: env.FIREBASE_PRIVATE_KEY.replace(/\\n/gm, '\n')
-				}
-			});
-		} else {
-			throw new Error('Cloud Storage credentials not configured');
-		}
+		storage = new Storage({
+			projectId: FIREBASE_PROJECT_ID,
+			credentials: {
+				client_email: FIREBASE_CLIENT_EMAIL,
+				private_key: FIREBASE_PRIVATE_KEY.replace(/\\n/gm, '\n')
+			}
+		});
 	}
 	return storage;
 }
