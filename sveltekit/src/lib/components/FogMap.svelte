@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import type { Webcam, CameraLabel } from '$lib/types';
 	import { getFogColor, SF_CENTER } from '$lib/utils';
-	import L from 'leaflet';
-	import 'leaflet/dist/leaflet.css';
 
 	interface Props {
 		webcams: Webcam[];
@@ -14,25 +13,34 @@
 	let { webcams, cameraLabels, onMarkerClick }: Props = $props();
 
 	let mapContainer: HTMLDivElement;
-	let map: L.Map | null = null;
-	let markers: Map<string, L.CircleMarker> = new Map();
+	let map: any = null;
+	let markers: Map<string, any> = new Map();
+	let L: any = null;
 
-	onMount(() => {
-		// Initialize map
-		map = L.map(mapContainer, {
-			center: SF_CENTER,
-			zoom: 11,
-			zoomControl: true
-		});
+	onMount(async () => {
+		// Only import Leaflet on the client side
+		if (browser) {
+			// @ts-ignore
+			L = (await import('leaflet')).default;
+			// Import CSS
+			await import('leaflet/dist/leaflet.css');
 
-		// Add tile layer
-		L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-			attribution:
-				'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-		}).addTo(map);
+			// Initialize map
+			map = L.map(mapContainer, {
+				center: SF_CENTER,
+				zoom: 11,
+				zoomControl: true
+			});
 
-		// Initialize markers
-		updateMarkers();
+			// Add tile layer
+			L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+				attribution:
+					'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+			}).addTo(map);
+
+			// Initialize markers
+			updateMarkers();
+		}
 
 		// Cleanup on unmount
 		return () => {
@@ -45,13 +53,13 @@
 
 	// Update markers when webcams or labels change
 	$effect(() => {
-		if (map && webcams) {
+		if (map && webcams && L) {
 			updateMarkers();
 		}
 	});
 
 	function updateMarkers() {
-		if (!map) return;
+		if (!map || !L) return;
 
 		// Remove old markers
 		markers.forEach((marker) => marker.remove());
