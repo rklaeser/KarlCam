@@ -1,3 +1,0 @@
-"""
-KarlCam Web API Package
-"""

@@ -1,1 +1,0 @@
-"""Routers module for KarlCam API"""

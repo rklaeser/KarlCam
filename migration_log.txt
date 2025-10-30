@@ -1,0 +1,36 @@
+======================================================================
+KarlCam PostgreSQL → Firestore Migration (Staging + Production)
+======================================================================
+
+Databases to migrate:
+  ✓ Staging: localhost:5432/karlcam_staging
+  ✓ Production: localhost:5432/karlcam_production
+
+This will migrate ALL data from both databases into a single Firestore instance.
+This consolidates staging and production data together.
+
+Continue? (yes/no): Traceback (most recent call last):
+  File "/Users/reed/Code/KarlCam/scripts/migrate_postgres_to_firestore.py", line 352, in main
+    staging_conn = get_pg_connection(staging_url)
+  File "/Users/reed/Code/KarlCam/scripts/migrate_postgres_to_firestore.py", line 27, in get_pg_connection
+    return psycopg2.connect(database_url)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Users/reed/Code/KarlCam/migration-venv/lib/python3.13/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "karlcam_staging"
+
+
+Connecting to Firestore...
+✓ Connected to Firestore
+
+======================================================================
+MIGRATING STAGING DATABASE
+======================================================================
+
+❌ ERROR: Migration failed
+   connection to server at "localhost" (::1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "karlcam_staging"
+
